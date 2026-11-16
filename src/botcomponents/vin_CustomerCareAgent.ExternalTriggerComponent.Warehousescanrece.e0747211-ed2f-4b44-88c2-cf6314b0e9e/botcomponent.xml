@@ -1,0 +1,12 @@
+<botcomponent schemaname="vin_CustomerCareAgent.ExternalTriggerComponent.Warehousescanrece.e0747211-ed2f-4b44-88c2-cf6314b0e9e">
+  <componenttype>17</componenttype>
+  <description>Trigger your agent with certain message upon event: When a row is added, modified or deleted.</description>
+  <iconurl>https://static.powerapps.com/resource/ppcr/releases/v1.0.1831/1.0.1831.5064/commondataserviceforapps/icon.png</iconurl>
+  <iscustomizable>0</iscustomizable>
+  <name>Warehouse scan received</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

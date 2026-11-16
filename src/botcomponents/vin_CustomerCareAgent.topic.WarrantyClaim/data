@@ -1,0 +1,175 @@
+kind: AdaptiveDialog
+modelDescription: Use when a customer wants to make a warranty claim, repair or replacement for a faulty product, for example a laptop that will not charge or headphones that stopped working. Collects the serial number, purchase date and fault description, shows a summary card to confirm, then submits the claim and RMA.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Warranty Claim
+    triggerQueries:
+      - My laptop won't charge and it's still under warranty
+      - Can I get a replacement under warranty
+      - I want to make a warranty claim
+      - My product is faulty, can you repair it
+      - My headphones stopped working, can you replace them
+      - Is my laptop covered by warranty for repair
+
+  actions:
+    - kind: BeginDialog
+      id: begin_identify
+      dialog: vin_CustomerCareAgent.topic.IdentifyCustomer
+
+    - kind: ConditionGroup
+      id: cond_not_verified
+      conditions:
+        - id: cond_not_verified_yes
+          condition: =Global.CustomerVerified <> true
+          actions:
+            - kind: EndDialog
+              id: end_not_verified
+
+    - kind: SendActivity
+      id: sendActivity_intro
+      activity: I'm sorry it's not working. I'll set up a warranty claim for you; it takes about a minute.
+
+    - kind: Question
+      id: question_serial
+      interruptionPolicy:
+        allowInterruption: true
+
+      variable: init:Topic.SerialNumber
+      prompt: What's the product's serial number? It's on the label under the product and on your order, for example SN-LTP-48213.
+      entity:
+        kind: RegexEntityReference
+        entityId: vin_CustomerCareAgent.entity.SerialNumber
+
+    - kind: Question
+      id: question_purchasedate
+      interruptionPolicy:
+        allowInterruption: true
+
+      variable: init:Topic.PurchaseDate
+      prompt: When did you buy it? An approximate date is fine.
+      entity: DatePrebuiltEntity
+
+    - kind: Question
+      id: question_fault
+      variable: init:Topic.FaultDescription
+      prompt: Please describe the problem in your own words. What happens, since when, and what have you already tried?
+      entity: StringPrebuiltEntity
+
+    - kind: InvokeAIBuilderModelAction
+      id: invokeAIBuilderModelAction_LTmjxm
+      input:
+        binding:
+          CustomerDescription: =Topic.FaultDescription
+
+      output:
+        binding:
+          predictionOutput: Topic.FaultSummaryResult
+
+      aIModelId: ab7147d6-66a1-4254-a6dc-31912e8af436
+
+    - kind: SetVariable
+      id: setVariable_summary
+      variable: Topic.FaultSummary
+      value: =If(IsBlank(Topic.FaultSummaryResult.text), Topic.FaultDescription, Topic.FaultSummaryResult.text)
+
+    - kind: AdaptiveCardPrompt
+      id: adaptiveCard_confirm
+      card: |-
+        ={
+          type: "AdaptiveCard",
+          version: "1.5",
+          body: [
+            { type: "TextBlock", text: "Please check your warranty claim", weight: "Bolder", size: "Medium", wrap: true },
+            { type: "FactSet", facts: [
+                { title: "Name", value: Text(Global.CustomerFullName) },
+                { title: "Serial number", value: Upper(Text(Topic.SerialNumber)) },
+                { title: "Purchase date", value: Text(Topic.PurchaseDate, "yyyy-mm-dd") },
+                { title: "Problem", value: Text(Topic.FaultDescription) },
+                { title: "Summary for technicians", value: Text(Topic.FaultSummary) },
+                { title: "Email", value: Text(Global.CustomerEmail) }
+              ]
+            },
+            { type: "TextBlock", text: "We'll check the warranty against your order and email the return label if it's covered.", wrap: true, isSubtle: true, size: "Small" }
+          ],
+          actions: [
+            { type: "Action.Submit", title: "Submit claim", data: { action: "submit" } },
+            { type: "Action.Submit", title: "Something's wrong, start again", data: { action: "restart" } }
+          ]
+        }
+      output:
+        binding:
+          action: Topic.CardAction
+
+      outputType:
+        properties:
+          action: String
+
+    - kind: ConditionGroup
+      id: conditionGroup_confirm
+      conditions:
+        - id: conditionItem_submit
+          condition: =Topic.CardAction = "submit"
+          actions:
+            - kind: SendActivity
+              id: sendActivity_submitting
+              activity: Thanks, submitting your claim now...
+
+            - kind: InvokeFlowAction
+              id: invokeFlowAction_rma
+              input:
+                binding:
+                  text: =Upper(Topic.SerialNumber)
+                  text_1: =Text(Topic.PurchaseDate, "yyyy-mm-dd")
+                  text_2: =Topic.FaultDescription
+                  text_3: =Topic.FaultSummary
+                  text_4: =Global.CustomerEmail
+                  text_5: =Global.CustomerFullName
+                  text_6: =Global.ContactId
+
+              output:
+                binding:
+                  claimnumber: Topic.ClaimNumber
+                  inwarranty: Topic.InWarranty
+                  outcome: Topic.Outcome
+                  rmanumber: Topic.RMANumber
+                  ticketnumber: Topic.TicketNumber
+                  warrantyend: Topic.WarrantyEnd
+
+              flowId: 1346cd27-1acd-f111-a05a-6045bd565bd6
+
+            - kind: ConditionGroup
+              id: conditionGroup_outcome
+              conditions:
+                - id: conditionItem_approved
+                  condition: =Topic.InWarranty = "Yes"
+                  actions:
+                    - kind: SendActivity
+                      id: sendActivity_approved
+                      activity: |-
+                        Good news: your product is under warranty until {Topic.WarrantyEnd}, so your claim is approved.
+
+                        - Claim number: **{Topic.ClaimNumber}**
+                        - Return authorisation (RMA): **{Topic.RMANumber}**
+                        - Service ticket: {Topic.TicketNumber}
+
+                        I've booked a courier collection and emailed your prepaid return label. Pack the product with its charger and write the RMA number on the box. We'll repair it, or replace it if the policy allows, and email you as soon as it reaches our warehouse.
+
+              elseActions:
+                - kind: SendActivity
+                  id: sendActivity_review
+                  activity: |-
+                    {Topic.Outcome}
+
+                    Your claim reference is **{Topic.ClaimNumber}**. If you'd like, I can connect you with a customer care specialist.
+
+        - id: conditionItem_restart
+          condition: =Topic.CardAction = "restart"
+          actions:
+            - kind: SendActivity
+              id: sendActivity_restart
+              activity: No problem. Just tell me you want to make a warranty claim again and we'll start over with the right details.
+
+    - kind: EndDialog
+      id: endDialog_done

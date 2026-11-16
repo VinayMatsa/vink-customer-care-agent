@@ -1,0 +1,839 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccOutlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "CC Customer Email Override (vin_CCCustomerEmailOverride)": {
+          "defaultValue": "support@example.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "vin_CCCustomerEmailOverride",
+            "description": "Demo safety: when set, every customer email is sent here instead of the customer address. Clear it in production."
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "78262bcb-a998-4097-afbb-c299fa8179d0"
+          },
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "description": "SerialNumber",
+                  "title": "SerialNumber",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_1": {
+                  "description": "PurchaseDate",
+                  "title": "PurchaseDate",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_2": {
+                  "description": "FaultDescription",
+                  "title": "FaultDescription",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_3": {
+                  "description": "FaultSummary",
+                  "title": "FaultSummary",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_4": {
+                  "description": "CustomerEmail",
+                  "title": "CustomerEmail",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_5": {
+                  "description": "CustomerName",
+                  "title": "CustomerName",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_6": {
+                  "title": "ContactId",
+                  "description": "Dataverse contact id of the verified customer (optional)",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text",
+                "text_2"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_Outcome": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "ae0db80d-677a-43ae-b4f9-ee04d816cf7b"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vOutcome",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_RMA": {
+          "runAfter": {
+            "Init_Outcome": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "c6e15207-58a0-4ae3-8c70-ebf9a4728796"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vRMA",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_Ticket": {
+          "runAfter": {
+            "Init_RMA": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "6bd53aa8-5792-4058-ba1e-91efe572d5e1"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vTicket",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_Claim": {
+          "runAfter": {
+            "Init_Ticket": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "44accbe1-45d2-4c06-9961-fe61e214e07c"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vClaim",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Stamp": {
+          "runAfter": {
+            "Init_Claim": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "af887e7a-aa75-4d3c-830c-b4757518aef3"
+          },
+          "type": "Compose",
+          "inputs": "@formatDateTime(utcNow(),'yyMMddHHmmss')"
+        },
+        "Find_order_by_serial": {
+          "runAfter": {
+            "Stamp": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a9462277-1e54-4522-8777-11ac944ed73a"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "ListRecords",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "entityName": "vin_ccorders",
+              "$filter": "vin_serialnumber eq '@{trim(triggerBody()?['text'])}'",
+              "$top": 1,
+              "$expand": "vin_Product($select=vin_name,vin_warrantymonths)"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Order": {
+          "runAfter": {
+            "Find_order_by_serial": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "6afee7c6-ab23-45e4-ae4e-523f4e27a605"
+          },
+          "type": "Compose",
+          "inputs": "@first(outputs('Find_order_by_serial')?['body/value'])"
+        },
+        "Purchase_date": {
+          "runAfter": {
+            "Order": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "aac933fd-c583-453c-8449-0b09a11d1c60"
+          },
+          "type": "Compose",
+          "inputs": "@if(empty(outputs('Order')), if(empty(triggerBody()?['text_1']), '1900-01-01', triggerBody()?['text_1']), outputs('Order')?['vin_orderdate'])"
+        },
+        "Warranty_months": {
+          "runAfter": {
+            "Purchase_date": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "4c4e22d0-46a3-4bf3-84d5-41aa432d7aa3"
+          },
+          "type": "Compose",
+          "inputs": "@if(empty(outputs('Order')), 12, int(outputs('Order')?['vin_Product']?['vin_warrantymonths']))"
+        },
+        "Warranty_end": {
+          "runAfter": {
+            "Warranty_months": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "b9542056-5697-4245-aa42-85f86a7e5d17"
+          },
+          "type": "Compose",
+          "inputs": "@addToTime(outputs('Purchase_date'), outputs('Warranty_months'), 'Month', 'yyyy-MM-dd')"
+        },
+        "In_warranty": {
+          "runAfter": {
+            "Warranty_end": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "51ee0723-638b-4e5d-8c99-9472f4162d3b"
+          },
+          "type": "Compose",
+          "inputs": "@less(ticks(utcNow()), ticks(outputs('Warranty_end')))"
+        },
+        "Approve_or_review": {
+          "actions": {
+            "Set_RMA": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "3044e4ea-4065-4670-8430-7230d9907f5d"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vRMA",
+                "value": "RMA-@{outputs('Stamp')}"
+              }
+            },
+            "Create_approved_claim": {
+              "runAfter": {
+                "Set_RMA": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "174945a1-30d4-4b8f-954f-32ba32c691eb"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccwarrantyclaims",
+                  "item/vin_claimnumber": "CLM-@{outputs('Stamp')}",
+                  "item/vin_claimstatus": 949870001,
+                  "item/vin_customeremail": "@{triggerBody()?['text_4']}",
+                  "item/vin_faultdescription": "@{triggerBody()?['text_2']}",
+                  "item/vin_faultsummary": "@{triggerBody()?['text_3']}",
+                  "item/vin_inwarranty": true,
+                  "item/vin_Order@odata.bind": "/vin_ccorders(@{outputs('Order')?['vin_ccorderid']})",
+                  "item/vin_purchasedate": "@{outputs('Purchase_date')}",
+                  "item/vin_rmanumber": "@variables('vRMA')",
+                  "item/vin_serialnumber": "@{triggerBody()?['text']}"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Create_service_ticket": {
+              "runAfter": {
+                "Create_approved_claim": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "e51e4eb7-019b-405e-8cfd-6b0eb5063291"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "item/vin_aisummary": "@{triggerBody()?['text_3']}",
+                  "item/vin_category": 949870000,
+                  "item/vin_courierbooking": "COUR-@{outputs('Stamp')}",
+                  "item/vin_customeremail": "@{triggerBody()?['text_4']}",
+                  "item/vin_description": "@{triggerBody()?['text_2']}",
+                  "item/vin_latestupdate": "Warranty claim approved (RMA @{variables('vRMA')}). Please send the product back using the prepaid return label we emailed.",
+                  "item/vin_priority": 949870001,
+                  "item/vin_Order@odata.bind": "/vin_ccorders(@{outputs('Order')?['vin_ccorderid']})",
+                  "item/vin_source": 949870000,
+                  "item/vin_subject": "Warranty claim: @{coalesce(outputs('Order')?['vin_Product']?['vin_name'],'product')} (@{triggerBody()?['text']})",
+                  "item/vin_ticketstatus": 949870001,
+                  "item/vin_WarrantyClaim@odata.bind": "/vin_ccwarrantyclaims(@{outputs('Create_approved_claim')?['body/vin_ccwarrantyclaimid']})"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Set_ticket": {
+              "runAfter": {
+                "Link_customer": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "3be81b0f-c20a-471e-9d01-30ea175221c8"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vTicket",
+                "value": "@{outputs('Get_new_ticket')?['body/vin_ticketnumber']}"
+              }
+            },
+            "Set_claim_yes": {
+              "runAfter": {
+                "Set_ticket": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "de5d47cb-a463-403c-89b0-e4266e06c275"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vClaim",
+                "value": "CLM-@{outputs('Stamp')}"
+              }
+            },
+            "Email_return_label": {
+              "runAfter": {
+                "Set_outcome_yes": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "4d6aebc1-3841-4938-8e5c-af543da30c80"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_office365",
+                  "operationId": "SendEmailV2",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                },
+                "parameters": {
+                  "emailMessage/To": "@{if(empty(parameters('CC Customer Email Override (vin_CCCustomerEmailOverride)')),triggerBody()?['text_4'],parameters('CC Customer Email Override (vin_CCCustomerEmailOverride)'))}",
+                  "emailMessage/Subject": "Your return label: @{variables('vRMA')} (Vink Electronics)",
+                  "emailMessage/Body": "<p>Hello @{triggerBody()?['text_5']},</p><p>Good news: your <b>@{outputs('Order')?['vin_Product']?['vin_name']}</b> (serial @{triggerBody()?['text']}) is under warranty until @{outputs('Warranty_end')}, so we've approved your claim.</p><ul><li>Claim number: @{variables('vClaim')}</li><li>RMA number: <b>@{variables('vRMA')}</b></li><li>Service ticket: @{variables('vTicket')}</li><li>Courier collection booked: COUR-@{outputs('Stamp')} (within 2 business days)</li></ul><p><b>Prepaid return label</b><br>Ship to: Vink Electronics Returns Centre, RMA @{variables('vRMA')}<br>Print this email, pack the product with its charger, and write the RMA number on the box.</p><p>Fault recorded for our technicians: @{triggerBody()?['text_3']}</p><p>We'll email you as soon as the product reaches our warehouse and has been inspected.</p><p>Vink Electronics Customer Care</p><p style=\"color:#888\"><i>Test mode: sent to the Customer Care test mailbox instead of @{triggerBody()?['text_4']}.</i></p>",
+                  "emailMessage/Importance": "Normal"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Set_outcome_yes": {
+              "runAfter": {
+                "Set_claim_yes": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "501c273c-f431-41ac-a870-cfdb3fe8bbd9"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vOutcome",
+                "value": "Approved. The product is under warranty until @{outputs('Warranty_end')}. RMA @{variables('vRMA')} created and courier collection booked. The return label is being emailed."
+              }
+            },
+            "Get_new_ticket": {
+              "runAfter": {
+                "Create_service_ticket": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "e326ed95-f677-4e7b-9da1-4d1774023206"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "GetItem",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "recordId": "@outputs('Create_service_ticket')?['body/vin_ccserviceticketid']",
+                  "$select": "vin_ticketnumber"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Link_customer": {
+              "actions": {
+                "Ticket_customer": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "136c0413-ef1b-4c62-8abe-49440b77486d"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "UpdateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccservicetickets",
+                      "recordId": "@outputs('Create_service_ticket')?['body/vin_ccserviceticketid']",
+                      "item/vin_Customer@odata.bind": "/contacts(@{coalesce(triggerBody()?['text_6'],outputs('Order')?['_vin_customercontact_value'],'')})"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Claim_customer": {
+                  "runAfter": {
+                    "Ticket_customer": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "ee4db760-62ad-4ca2-adae-db9c4838d6dd"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "UpdateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccwarrantyclaims",
+                      "recordId": "@outputs('Create_approved_claim')?['body/vin_ccwarrantyclaimid']",
+                      "item/vin_Customer@odata.bind": "/contacts(@{coalesce(triggerBody()?['text_6'],outputs('Order')?['_vin_customercontact_value'],'')})"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Get_new_ticket": [
+                  "Succeeded"
+                ]
+              },
+              "expression": {
+                "and": [
+                  {
+                    "not": {
+                      "equals": [
+                        "@coalesce(triggerBody()?['text_6'],outputs('Order')?['_vin_customercontact_value'],'')",
+                        ""
+                      ]
+                    }
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "909d907c-8033-4f88-a346-d3679a146626"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "In_warranty": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Create_review_claim": {
+                "runAfter": {},
+                "metadata": {
+                  "operationMetadataId": "d0696e31-dce5-4c0f-a10f-c440b04367d5"
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_commondataserviceforapps",
+                    "operationId": "CreateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                  },
+                  "parameters": {
+                    "entityName": "vin_ccwarrantyclaims",
+                    "item/vin_claimnumber": "CLM-@{outputs('Stamp')}",
+                    "item/vin_claimstatus": 949870000,
+                    "item/vin_customeremail": "@{triggerBody()?['text_4']}",
+                    "item/vin_faultdescription": "@{triggerBody()?['text_2']}",
+                    "item/vin_faultsummary": "@{triggerBody()?['text_3']}",
+                    "item/vin_inwarranty": false,
+                    "item/vin_serialnumber": "@{triggerBody()?['text']}"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              },
+              "Set_claim_no": {
+                "runAfter": {
+                  "Create_review_claim": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "26a30a3e-c463-40dc-9b71-a2f344da7e77"
+                },
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "vClaim",
+                  "value": "CLM-@{outputs('Stamp')}"
+                }
+              },
+              "Set_outcome_no": {
+                "runAfter": {
+                  "Set_claim_no": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "18f726a8-5e83-4524-84dc-442d726c4da5"
+                },
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "vOutcome",
+                  "value": "@{if(empty(outputs('Order')), 'No order was found for this serial number, so the warranty could not be verified. A specialist will review the claim.', concat('The warranty ended on ', outputs('Warranty_end'), '. The claim was logged for review; a paid repair quote can be offered.'))}"
+                }
+              },
+              "Create_review_ticket": {
+                "runAfter": {
+                  "Set_outcome_no": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "dfa1904d-d905-4ab0-bf14-67a126ac9de6"
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_commondataserviceforapps",
+                    "operationId": "CreateRecord",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                  },
+                  "parameters": {
+                    "entityName": "vin_ccservicetickets",
+                    "item/vin_aisummary": "@{triggerBody()?['text_3']}",
+                    "item/vin_category": 949870000,
+                    "item/vin_customeremail": "@{triggerBody()?['text_4']}",
+                    "item/vin_description": "@{triggerBody()?['text_2']}",
+                    "item/vin_latestupdate": "Your claim needs a manual warranty review. A specialist will contact you within one business day.",
+                    "item/vin_priority": 949870001,
+                    "item/vin_source": 949870000,
+                    "item/vin_subject": "Warranty review: @{coalesce(outputs('Order')?['vin_Product']?['vin_name'],'product')} (@{triggerBody()?['text']})",
+                    "item/vin_ticketstatus": 949870000
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              },
+              "Get_review_ticket": {
+                "runAfter": {
+                  "Create_review_ticket": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "826c5665-e560-4054-8c24-ee2be022f70b"
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "host": {
+                    "connectionName": "shared_commondataserviceforapps",
+                    "operationId": "GetItem",
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                  },
+                  "parameters": {
+                    "entityName": "vin_ccservicetickets",
+                    "recordId": "@outputs('Create_review_ticket')?['body/vin_ccserviceticketid']",
+                    "$select": "vin_ticketnumber"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              },
+              "Link_review_customer": {
+                "actions": {
+                  "Review_customer": {
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "6b36dab0-2a72-4ab8-811a-706b2a4d6f87"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_commondataserviceforapps",
+                        "operationId": "UpdateRecord",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                      },
+                      "parameters": {
+                        "entityName": "vin_ccservicetickets",
+                        "recordId": "@outputs('Create_review_ticket')?['body/vin_ccserviceticketid']",
+                        "item/vin_Customer@odata.bind": "/contacts(@{coalesce(triggerBody()?['text_6'],outputs('Order')?['_vin_customercontact_value'],'')})"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    }
+                  }
+                },
+                "runAfter": {
+                  "Get_review_ticket": [
+                    "Succeeded"
+                  ]
+                },
+                "expression": {
+                  "and": [
+                    {
+                      "not": {
+                        "equals": [
+                          "@coalesce(triggerBody()?['text_6'],outputs('Order')?['_vin_customercontact_value'],'')",
+                          ""
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "0b420fb9-a792-4516-993a-f530911cfc6a"
+                },
+                "type": "If"
+              },
+              "Set_review_ticket": {
+                "runAfter": {
+                  "Link_review_order": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "1d4c62af-6833-45fd-9300-7be78985e5d9"
+                },
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "vTicket",
+                  "value": "@{outputs('Get_review_ticket')?['body/vin_ticketnumber']}"
+                }
+              },
+              "Link_review_order": {
+                "actions": {
+                  "Review_order": {
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "8b07d72e-e525-44c7-871e-b938119c6d93"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_commondataserviceforapps",
+                        "operationId": "UpdateRecord",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                      },
+                      "parameters": {
+                        "entityName": "vin_ccservicetickets",
+                        "recordId": "@outputs('Create_review_ticket')?['body/vin_ccserviceticketid']",
+                        "item/vin_Order@odata.bind": "/vin_ccorders(@{outputs('Order')?['vin_ccorderid']})"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    }
+                  }
+                },
+                "runAfter": {
+                  "Link_review_customer": [
+                    "Succeeded"
+                  ]
+                },
+                "expression": {
+                  "and": [
+                    {
+                      "not": {
+                        "equals": [
+                          "@coalesce(outputs('Order')?['vin_ccorderid'],'')",
+                          ""
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "metadata": {
+                  "operationMetadataId": "e533e57b-2a8c-4dfd-bef6-ea7353ab80ab"
+                },
+                "type": "If"
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@empty(outputs('Order'))",
+                  false
+                ]
+              },
+              {
+                "equals": [
+                  "@outputs('In_warranty')",
+                  true
+                ]
+              }
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "4dc02c47-d34b-4a3e-92e5-8a81a171d742"
+          },
+          "type": "If"
+        },
+        "Respond_to_the_agent": {
+          "runAfter": {
+            "Approve_or_review": [
+              "Succeeded",
+              "Failed"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "396c1458-cbd2-4e9d-bdaa-8b64c2859f87"
+          },
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "inwarranty": "@{if(empty(variables('vRMA')),'No','Yes')}",
+              "claimnumber": "@{variables('vClaim')}",
+              "rmanumber": "@{variables('vRMA')}",
+              "ticketnumber": "@{variables('vTicket')}",
+              "warrantyenddate": "@{outputs('Warranty_end')}",
+              "outcome": "@{variables('vOutcome')}"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "inwarranty": {
+                  "title": "InWarranty",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "claimnumber": {
+                  "title": "ClaimNumber",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "rmanumber": {
+                  "title": "RMANumber",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "ticketnumber": {
+                  "title": "TicketNumber",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "warrantyenddate": {
+                  "title": "WarrantyEndDate",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "outcome": {
+                  "title": "Outcome",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

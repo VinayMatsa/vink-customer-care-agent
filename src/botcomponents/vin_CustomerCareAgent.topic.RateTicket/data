@@ -1,0 +1,160 @@
+kind: AdaptiveDialog
+modelDescription: Use when a customer wants to rate a resolved support ticket or give feedback on how their request was handled, for example "Rate TKT-1003". Records a 1 to 5 satisfaction score and an optional comment.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Rate a Ticket
+    triggerQueries:
+      - Rate TKT-1003
+      - I want to rate my ticket
+      - Give feedback on my support request
+      - Leave a review of your support
+
+  actions:
+    - kind: SetVariable
+      id: set_first_text
+      variable: init:Topic.FirstText
+      value: =System.Activity.Text
+
+    - kind: BeginDialog
+      id: begin_identify
+      dialog: vin_CustomerCareAgent.topic.IdentifyCustomer
+
+    - kind: ConditionGroup
+      id: cond_not_verified
+      conditions:
+        - id: cond_not_verified_yes
+          condition: =Global.CustomerVerified <> true
+          actions:
+            - kind: EndDialog
+              id: end_not_verified
+
+    - kind: SetVariable
+      id: set_ticket_from_text
+      variable: init:Topic.TicketNo
+      value: =If(!IsBlank(Global.CurrentTicket), Global.CurrentTicket, IfError(Upper(Match(Topic.FirstText, "TKT-[0-9]{4,12}", MatchOptions.IgnoreCase).FullMatch), ""))
+
+    - kind: ConditionGroup
+      id: cond_need_pick
+      conditions:
+        - id: cond_need_pick_yes
+          condition: =IsBlank(Topic.TicketNo)
+          actions:
+            - kind: InvokeFlowAction
+              id: flow_list_tickets
+              input:
+                binding:
+                  text: =Global.ContactId
+                  text_1: ="all"
+
+              output:
+                binding:
+                  ticketchoices: Topic.TicketChoices
+                  ticketcount: Topic.TicketCount
+                  ticketlist: Topic.TicketList
+
+              flowId: c4cf3f49-f6cd-f111-a05a-6045bd565bd6
+
+            - kind: ConditionGroup
+              id: cond_count
+              conditions:
+                - id: cond_none
+                  condition: =Topic.TicketCount = "0"
+                  actions:
+                    - kind: SendActivity
+                      id: msg_no_tickets
+                      activity: I can't see any tickets on your account to rate.
+
+                    - kind: EndDialog
+                      id: end_no_tickets
+
+                - id: cond_one
+                  condition: =Topic.TicketCount = "1"
+                  actions:
+                    - kind: SetVariable
+                      id: set_only_ticket
+                      variable: Topic.TicketNo
+                      value: =First(Split(Topic.TicketChoices, "~")).Value
+
+              elseActions:
+                - kind: AdaptiveCardPrompt
+                  id: card_pick_ticket
+                  card: |-
+                    ={
+                      type: "AdaptiveCard",
+                      version: "1.5",
+                      body: [
+                        { type: "TextBlock", text: "Which ticket?", weight: "Bolder", wrap: true },
+                        { type: "Input.ChoiceSet", id: "ticket", style: "expanded", value: First(Split(Topic.TicketChoices, "~")).Value, choices: ForAll(Split(Topic.TicketChoices, "|"), { title: Last(Split(ThisRecord.Value, "~")).Value, value: First(Split(ThisRecord.Value, "~")).Value }) }
+                      ],
+                      actions: [
+                        { type: "Action.Submit", title: "Continue", data: { action: "ok" } }
+                      ]
+                    }
+                  output:
+                    binding:
+                      action: Topic.PickAction
+                      ticket: Topic.TicketNo
+
+                  outputType:
+                    properties:
+                      action: String
+                      ticket: String
+
+    - kind: SetVariable
+      id: clear_current_ticket
+      variable: Global.CurrentTicket
+      value: =""
+
+    - kind: AdaptiveCardPrompt
+      id: card_rate
+      card: |-
+        ={
+          type: "AdaptiveCard",
+          version: "1.5",
+          body: [
+            { type: "TextBlock", text: "How did we do on " & Text(Topic.TicketNo) & "?", weight: "Bolder", size: "Medium", wrap: true },
+            { type: "Input.ChoiceSet", id: "score", style: "expanded", value: "5", choices: [
+                { title: "5 – Excellent", value: "5" },
+                { title: "4 – Good", value: "4" },
+                { title: "3 – Okay", value: "3" },
+                { title: "2 – Poor", value: "2" },
+                { title: "1 – Very poor", value: "1" }
+              ] },
+            { type: "Input.Text", id: "comment", label: "Anything you'd like to add? (optional)", isMultiline: true, maxLength: 1000 }
+          ],
+          actions: [
+            { type: "Action.Submit", title: "Send rating", data: { action: "send" } }
+          ]
+        }
+      output:
+        binding:
+          action: Topic.RateAction
+          comment: Topic.Comment
+          score: Topic.Score
+
+      outputType:
+        properties:
+          action: String
+          comment: String
+          score: String
+
+    - kind: InvokeFlowAction
+      id: flow_csat
+      input:
+        binding:
+          text: =Topic.TicketNo
+          text_1: =Global.ContactId
+          text_2: =Topic.Score
+          text_3: =Topic.Comment
+
+      output:
+        binding:
+          result: Topic.Result
+
+      flowId: 789119aa-f6cd-f111-a05a-6045bd565bd6
+
+    - kind: SendActivity
+      id: msg_rated
+      activity: "{Switch(Topic.Result, \"Saved\", \"Thank you! I've recorded \" & Topic.Score & \" out of 5 for \" & Topic.TicketNo & \".\" & If(Value(Topic.Score) <= 2, \" I'm sorry we let you down. A team lead will review your ticket and may contact you.\", \"\"), \"NotResolved\", Topic.TicketNo & \" is still open, so it can't be rated yet. I'll email you when it's resolved.\", \"Error\", \"Sorry, I couldn't save your rating just now. Please try again later.\", \"I can't find \" & Topic.TicketNo & \" on your account.\")}"

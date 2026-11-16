@@ -1,0 +1,11 @@
+<botcomponent schemaname="vin_CustomerCareAgent.action.CustomerCareFindCustomer">
+  <componenttype>9</componenttype>
+  <description>Finds and verifies a customer by email and order or customer number. Used by the Identify Customer topic only.</description>
+  <iscustomizable>1</iscustomizable>
+  <name>Customer Care – Find Customer</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

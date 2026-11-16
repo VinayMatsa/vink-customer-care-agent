@@ -1,0 +1,29 @@
+kind: TaskDialog
+modelDescription: "Finds and verifies a customer by email and order or customer number. Used by the Identify Customer topic only."
+outputs:
+  - propertyName: status
+
+  - propertyName: contactid
+
+  - propertyName: firstname
+
+  - propertyName: fullname
+
+  - propertyName: customernumber
+
+  - propertyName: isvip
+
+  - propertyName: openticketcount
+
+  - propertyName: openticketsummary
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: 4476491c-f6cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

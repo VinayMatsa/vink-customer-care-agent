@@ -1,0 +1,2 @@
+kind: RegexEntity
+pattern: (?i)ORD-\d{5}

@@ -1,0 +1,45 @@
+kind: AdaptiveDialog
+modelDescription: Use when a verified customer asks where their order is, whether it has shipped, or for their tracking number. Lists the customer's own orders with status and tracking.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Track an Order
+    triggerQueries:
+      - Where is my order
+      - Track my order
+      - Has my order shipped
+      - What's my tracking number
+      - Show my orders
+
+  actions:
+    - kind: BeginDialog
+      id: begin_identify
+      dialog: vin_CustomerCareAgent.topic.IdentifyCustomer
+
+    - kind: ConditionGroup
+      id: cond_not_verified
+      conditions:
+        - id: cond_not_verified_yes
+          condition: =Global.CustomerVerified <> true
+          actions:
+            - kind: EndDialog
+              id: end_not_verified
+
+    - kind: InvokeFlowAction
+      id: flow_orders
+      input:
+        binding:
+          text: =Global.ContactId
+
+      output:
+        binding:
+          ordercount: Topic.OrderCount
+          orderchoices: Topic.OrderChoices
+          orderlist: Topic.OrderList
+
+      flowId: b3cf3f49-f6cd-f111-a05a-6045bd565bd6
+
+    - kind: SendActivity
+      id: msg_orders
+      activity: "{If(Topic.OrderCount = \"0\", \"I can't see any orders on your account yet.\", If(Topic.OrderCount = \"-1\", \"Sorry, I couldn't reach our order system just now. Please try again in a few minutes.\", \"Here are your orders, newest first:\" & Char(10) & Char(10) & Topic.OrderList & Char(10) & Char(10) & \"If something's wrong with one of them, tell me and I'll raise a ticket.\"))}"

@@ -1,0 +1,10 @@
+<botcomponent schemaname="vin_CustomerCareAgent.entity.SerialNumber">
+  <componenttype>11</componenttype>
+  <iscustomizable>0</iscustomizable>
+  <name>Serial Number</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

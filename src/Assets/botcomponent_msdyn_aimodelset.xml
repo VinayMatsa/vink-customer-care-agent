@@ -1,0 +1,8 @@
+<botcomponent_msdyn_aimodelset>
+  <botcomponent_msdyn_aimodel botcomponentid.schemaname="vin_CustomerCareAgent.action.FaultSummaryforTechnicians" msdyn_aimodelid.msdyn_aimodelid="ab7147d6-66a1-4254-a6dc-31912e8af436">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_msdyn_aimodel>
+  <botcomponent_msdyn_aimodel botcomponentid.schemaname="vin_CustomerCareAgent.topic.WarrantyClaim" msdyn_aimodelid.msdyn_aimodelid="ab7147d6-66a1-4254-a6dc-31912e8af436">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_msdyn_aimodel>
+</botcomponent_msdyn_aimodelset>

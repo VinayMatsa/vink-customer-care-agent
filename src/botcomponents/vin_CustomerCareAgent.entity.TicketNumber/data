@@ -1,0 +1,2 @@
+kind: RegexEntity
+pattern: (?i)TKT-\d{4,12}

@@ -1,0 +1,245 @@
+kind: AdaptiveDialog
+modelDescription: Use when a customer asks for the status of a support ticket, repair or complaint, wants an update, or mentions a ticket number such as TKT-1005. Shows status, team, SLA target, latest update and timeline, and lets the customer reply, rate the ticket or ask for a person.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Check Ticket Status
+    triggerQueries:
+      - What's the status of my ticket
+      - Any update on my ticket
+      - Where is my repair
+      - Check my tickets
+      - What's happening with TKT-1005
+      - Has anyone looked at my complaint yet
+
+  actions:
+    - kind: SetVariable
+      id: set_first_text
+      variable: init:Topic.FirstText
+      value: =System.Activity.Text
+
+    - kind: BeginDialog
+      id: begin_identify
+      dialog: vin_CustomerCareAgent.topic.IdentifyCustomer
+
+    - kind: ConditionGroup
+      id: cond_not_verified
+      conditions:
+        - id: cond_not_verified_yes
+          condition: =Global.CustomerVerified <> true
+          actions:
+            - kind: EndDialog
+              id: end_not_verified
+
+    - kind: SetVariable
+      id: set_ticket_from_text
+      variable: init:Topic.TicketNo
+      value: =If(!IsBlank(Global.CurrentTicket), Global.CurrentTicket, IfError(Upper(Match(Topic.FirstText, "TKT-[0-9]{4,12}", MatchOptions.IgnoreCase).FullMatch), ""))
+
+    - kind: ConditionGroup
+      id: cond_need_pick
+      conditions:
+        - id: cond_need_pick_yes
+          condition: =IsBlank(Topic.TicketNo)
+          actions:
+            - kind: InvokeFlowAction
+              id: flow_list_tickets
+              input:
+                binding:
+                  text: =Global.ContactId
+                  text_1: ="open"
+
+              output:
+                binding:
+                  ticketchoices: Topic.TicketChoices
+                  ticketcount: Topic.TicketCount
+                  ticketlist: Topic.TicketList
+
+              flowId: c4cf3f49-f6cd-f111-a05a-6045bd565bd6
+
+            - kind: ConditionGroup
+              id: cond_count
+              conditions:
+                - id: cond_none
+                  condition: =Topic.TicketCount = "0"
+                  actions:
+                    - kind: SendActivity
+                      id: msg_no_tickets
+                      activity: You don't have any open tickets. If something's wrong, tell me and I'll raise one.
+
+                    - kind: EndDialog
+                      id: end_no_tickets
+
+                - id: cond_one
+                  condition: =Topic.TicketCount = "1"
+                  actions:
+                    - kind: SetVariable
+                      id: set_only_ticket
+                      variable: Topic.TicketNo
+                      value: =First(Split(Topic.TicketChoices, "~")).Value
+
+              elseActions:
+                - kind: AdaptiveCardPrompt
+                  id: card_pick_ticket
+                  card: |-
+                    ={
+                      type: "AdaptiveCard",
+                      version: "1.5",
+                      body: [
+                        { type: "TextBlock", text: "Which ticket?", weight: "Bolder", wrap: true },
+                        { type: "Input.ChoiceSet", id: "ticket", style: "expanded", value: First(Split(Topic.TicketChoices, "~")).Value, choices: ForAll(Split(Topic.TicketChoices, "|"), { title: Last(Split(ThisRecord.Value, "~")).Value, value: First(Split(ThisRecord.Value, "~")).Value }) }
+                      ],
+                      actions: [
+                        { type: "Action.Submit", title: "Continue", data: { action: "ok" } }
+                      ]
+                    }
+                  output:
+                    binding:
+                      action: Topic.PickAction
+                      ticket: Topic.TicketNo
+
+                  outputType:
+                    properties:
+                      action: String
+                      ticket: String
+
+    - kind: SetVariable
+      id: clear_current_ticket
+      variable: Global.CurrentTicket
+      value: =""
+
+    - kind: InvokeFlowAction
+      id: flow_get_ticket
+      input:
+        binding:
+          text: =Topic.TicketNo
+          text_1: =Global.ContactId
+
+      output:
+        binding:
+          canrate: Topic.CanRate
+          category: Topic.Category
+          latest: Topic.Latest
+          overdue: Topic.Overdue
+          priority: Topic.Priority
+          raised: Topic.Raised
+          resolveby: Topic.ResolveBy
+          result: Topic.Result
+          status: Topic.Status
+          subject: Topic.Subject
+          team: Topic.Team
+          timeline: Topic.Timeline
+
+      flowId: 47822f8a-f6cd-f111-a05a-6045bd565bd6
+
+    - kind: ConditionGroup
+      id: cond_found
+      conditions:
+        - id: cond_found_yes
+          condition: =Topic.Result = "Found"
+          actions:
+            - kind: SendActivity
+              id: msg_details
+              activity: |-
+                **{Topic.TicketNo}: {Topic.Subject}**
+
+                - Status: **{Topic.Status}**
+                - Team: {Topic.Team}
+                - Priority: {Topic.Priority}
+                - Raised: {Topic.Raised}
+                - Resolution target: {Topic.ResolveBy}{If(Topic.Overdue = "Yes", " (past target; the team has been alerted)", "")}
+
+                **Latest update:** {Topic.Latest}
+
+                **Timeline**
+                {Topic.Timeline}
+
+            - kind: AdaptiveCardPrompt
+              id: card_next
+              card: |-
+                ={
+                  type: "AdaptiveCard",
+                  version: "1.5",
+                  body: [
+                    { type: "TextBlock", text: If(Topic.Status = "Awaiting customer", "The team is waiting for your reply on this ticket.", "Anything else on this ticket?"), wrap: true }
+                  ],
+                  actions: Table(
+                    { type: "Action.Submit", title: "Add a reply", data: { action: "reply" } },
+                    { type: "Action.Submit", title: "Talk to a person", data: { action: "person" } },
+                    { type: "Action.Submit", title: If(Topic.CanRate = "Yes", "Rate this ticket", "That's all, thanks"), data: { action: If(Topic.CanRate = "Yes", "rate", "done") } }
+                  )
+                }
+              output:
+                binding:
+                  action: Topic.Next
+
+              outputType:
+                properties:
+                  action: String
+
+            - kind: ConditionGroup
+              id: cond_next
+              conditions:
+                - id: cond_next_reply
+                  condition: =Topic.Next = "reply"
+                  actions:
+                    - kind: Question
+                      id: q_reply
+                      alwaysPrompt: true
+                      variable: init:Topic.ReplyText
+                      prompt: What would you like to tell the {Topic.Team} team?
+                      entity: StringPrebuiltEntity
+
+                    - kind: InvokeFlowAction
+                      id: flow_reply
+                      input:
+                        binding:
+                          text: =Topic.TicketNo
+                          text_1: =Global.ContactId
+                          text_2: =Topic.ReplyText
+
+                      output:
+                        binding:
+                          message: Topic.ReplyMessage
+                          result: Topic.ReplyResult
+
+                      flowId: 5a822f8a-f6cd-f111-a05a-6045bd565bd6
+
+                    - kind: SendActivity
+                      id: msg_reply
+                      activity: "{If(Topic.ReplyResult = \"Added\" || Topic.ReplyResult = \"Closed\", Topic.ReplyMessage, \"Sorry, I couldn't add your message just now. Please try again in a few minutes.\")}"
+
+                - id: cond_next_person
+                  condition: =Topic.Next = "person"
+                  actions:
+                    - kind: SetVariable
+                      id: set_current_person
+                      variable: Global.CurrentTicket
+                      value: =Topic.TicketNo
+
+                    - kind: BeginDialog
+                      id: begin_escalate
+                      dialog: vin_CustomerCareAgent.topic.Escalate
+
+                - id: cond_next_rate
+                  condition: =Topic.Next = "rate"
+                  actions:
+                    - kind: SetVariable
+                      id: set_current_rate
+                      variable: Global.CurrentTicket
+                      value: =Topic.TicketNo
+
+                    - kind: BeginDialog
+                      id: begin_rate
+                      dialog: vin_CustomerCareAgent.topic.RateTicket
+
+              elseActions:
+                - kind: SendActivity
+                  id: msg_done
+                  activity: You're welcome. I'll email you whenever the status changes.
+
+      elseActions:
+        - kind: SendActivity
+          id: msg_not_found
+          activity: "{If(Topic.Result = \"Error\", \"Sorry, I couldn't reach our ticket system just now. Please try again in a few minutes.\", \"I can't find \" & Topic.TicketNo & \" on your account. Please check the number; it looks like TKT-1005.\")}"

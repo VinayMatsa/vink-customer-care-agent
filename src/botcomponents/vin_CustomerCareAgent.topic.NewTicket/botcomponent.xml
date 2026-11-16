@@ -1,0 +1,10 @@
+<botcomponent schemaname="vin_CustomerCareAgent.topic.NewTicket">
+  <componenttype>9</componenttype>
+  <iscustomizable>1</iscustomizable>
+  <name>New Ticket</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

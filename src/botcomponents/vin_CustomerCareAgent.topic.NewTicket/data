@@ -1,0 +1,325 @@
+kind: AdaptiveDialog
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: IssueDescription
+    description: The customer's problem in their own words (what happened, when, and what they want), if they have already described it. Leave empty if they only asked to raise a ticket.
+    shouldPromptUser: false
+
+modelDescription: Use when a customer reports a problem or request they want logged as a support ticket that is not a warranty repair claim, for example a late, lost or damaged delivery, a double charge or missing refund, a return or exchange, or a general product question. Verifies the customer, uses AI to suggest a subject, category and priority, lets the customer confirm, and creates the ticket.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: New Ticket
+    triggerQueries:
+      - I want to raise a support ticket
+      - I have a problem with my order
+      - My delivery hasn't arrived
+      - My parcel arrived damaged
+      - I was charged twice
+      - I haven't received my refund
+      - I want to make a complaint
+      - Report an issue
+
+  actions:
+    - kind: BeginDialog
+      id: begin_identify
+      dialog: vin_CustomerCareAgent.topic.IdentifyCustomer
+
+    - kind: ConditionGroup
+      id: cond_not_verified
+      conditions:
+        - id: cond_not_verified_yes
+          condition: =Global.CustomerVerified <> true
+          actions:
+            - kind: EndDialog
+              id: end_not_verified
+
+    - kind: SetVariable
+      id: set_desc_from_input
+      variable: init:Topic.Description
+      value: =Topic.IssueDescription
+
+    - kind: ConditionGroup
+      id: cond_need_desc
+      conditions:
+        - id: cond_need_desc_yes
+          condition: =IsBlank(Topic.Description) || Len(Topic.Description) < 20
+          actions:
+            - kind: Question
+              id: q_description
+              interruptionPolicy:
+                allowInterruption: true
+
+              alwaysPrompt: true
+              variable: Topic.Description
+              prompt: Please describe the problem in your own words. What happened, when, and what would you like us to do?
+              entity: StringPrebuiltEntity
+
+    - kind: InvokeAIBuilderModelAction
+      id: ai_triage
+      input:
+        binding:
+          IssueDescription: =Topic.Description
+
+      output:
+        binding:
+          predictionOutput: Topic.TriageResult
+
+      aIModelId: 7f2d33d2-1a8f-40d8-826b-5fdde8e183ba
+
+    - kind: SetVariable
+      id: set_triage_text
+      variable: init:Topic.TriageText
+      value: =Substitute(Substitute(Substitute(Topic.TriageResult.text, "```json", ""), "```", ""), Char(10), " ")
+
+    - kind: SetVariable
+      id: set_subject
+      variable: init:Topic.Subject
+      value: =IfError(Text(ParseJSON(Topic.TriageText).subject), Left(Topic.Description, 60))
+
+    - kind: SetVariable
+      id: set_category
+      variable: init:Topic.Category
+      value: =IfError(Text(ParseJSON(Topic.TriageText).category), "General")
+
+    - kind: SetVariable
+      id: set_priority
+      variable: init:Topic.Priority
+      value: =IfError(Text(ParseJSON(Topic.TriageText).priority), "Medium")
+
+    - kind: SetVariable
+      id: set_summary
+      variable: init:Topic.Summary
+      value: =IfError(Text(ParseJSON(Topic.TriageText).summary), Topic.Description)
+
+    - kind: InvokeFlowAction
+      id: flow_orders
+      input:
+        binding:
+          text: =Global.ContactId
+
+      output:
+        binding:
+          ordercount: Topic.OrderCount
+          orderchoices: Topic.OrderChoices
+          orderlist: Topic.OrderList
+
+      flowId: b3cf3f49-f6cd-f111-a05a-6045bd565bd6
+
+    - kind: SetVariable
+      id: set_order_choices
+      variable: init:Topic.OrderChoicesAll
+      value: =If(IsBlank(Topic.OrderChoices), "NONE~Not about a specific order", Topic.OrderChoices & "|NONE~Not about a specific order")
+
+    - kind: AdaptiveCardPrompt
+      id: card_review
+      card: |-
+        ={
+          type: "AdaptiveCard",
+          version: "1.5",
+          body: [
+            { type: "TextBlock", text: "Here's your ticket", weight: "Bolder", size: "Medium", wrap: true },
+            { type: "TextBlock", text: "I've filled this in from your description. Change anything that's wrong, then create the ticket.", wrap: true, isSubtle: true },
+            { type: "Input.Text", id: "subject", label: "Subject", value: Text(Topic.Subject), maxLength: 200 },
+            { type: "Input.ChoiceSet", id: "category", label: "Category", value: Text(Topic.Category), choices: [
+                { title: "Repair (faulty product)", value: "Repair" },
+                { title: "Delivery", value: "Delivery" },
+                { title: "Billing", value: "Billing" },
+                { title: "Returns", value: "Returns" },
+                { title: "General question", value: "General" }
+              ] },
+            { type: "Input.ChoiceSet", id: "priority", label: "Priority", value: Text(Topic.Priority), choices: [
+                { title: "Low", value: "Low" },
+                { title: "Medium", value: "Medium" },
+                { title: "High", value: "High" },
+                { title: "Urgent", value: "Urgent" }
+              ] },
+            { type: "Input.ChoiceSet", id: "order", label: "Which order is it about?", value: "NONE", choices: ForAll(Split(Topic.OrderChoicesAll, "|"), { title: Last(Split(ThisRecord.Value, "~")).Value, value: First(Split(ThisRecord.Value, "~")).Value }) },
+            { type: "TextBlock", text: "Summary for our team: " & Text(Topic.Summary), wrap: true, isSubtle: true, size: "Small" }
+          ],
+          actions: [
+            { type: "Action.Submit", title: "Create ticket", data: { action: "submit" } },
+            { type: "Action.Submit", title: "Cancel", data: { action: "cancel" } }
+          ]
+        }
+      output:
+        binding:
+          action: Topic.CardAction
+          category: Topic.CategoryFinal
+          order: Topic.OrderPicked
+          priority: Topic.PriorityFinal
+          subject: Topic.SubjectFinal
+
+      outputType:
+        properties:
+          action: String
+          category: String
+          order: String
+          priority: String
+          subject: String
+
+    - kind: ConditionGroup
+      id: cond_submit
+      conditions:
+        - id: cond_cancel
+          condition: =Topic.CardAction = "cancel"
+          actions:
+            - kind: SendActivity
+              id: msg_cancel
+              activity: No problem, I haven't created anything. Is there something else I can help with?
+
+            - kind: EndDialog
+              id: end_cancel
+
+    - kind: SetVariable
+      id: set_subject_final
+      variable: Topic.SubjectFinal
+      value: =If(IsBlank(Topic.SubjectFinal), Topic.Subject, Topic.SubjectFinal)
+
+    - kind: InvokeFlowAction
+      id: flow_create
+      input:
+        binding:
+          text: =Global.ContactId
+          text_1: =If(Topic.OrderPicked = "NONE", "", Topic.OrderPicked)
+          text_2: =Topic.CategoryFinal
+          text_3: =Topic.SubjectFinal
+          text_4: =Topic.Description
+          text_5: =Topic.Summary
+          text_6: =Topic.PriorityFinal
+          text_7: ="no"
+          text_8: =Global.CustomerEmail
+
+      output:
+        binding:
+          duplicate: Topic.Duplicate
+          priority: Topic.TicketPriority
+          resolveby: Topic.ResolveBy
+          respondby: Topic.RespondBy
+          result: Topic.Result
+          status: Topic.ExistingStatus
+          team: Topic.Team
+          ticketnumber: Topic.TicketNumber
+
+      flowId: 3b356e61-f6cd-f111-a05a-6045bd565bd6
+
+    - kind: ConditionGroup
+      id: cond_result
+      conditions:
+        - id: cond_created
+          condition: =Topic.Result = "Created"
+          actions:
+            - kind: SendActivity
+              id: msg_created
+              activity: |-
+                Done. Your ticket is **{Topic.TicketNumber}**.
+
+                - Team: {Topic.Team}
+                - Priority: {Topic.TicketPriority}
+                - First reply by: {Topic.RespondBy}
+                - Resolution target: {Topic.ResolveBy}
+
+                I've emailed you a confirmation. Ask me "What's the status of {Topic.TicketNumber}?" any time.
+
+        - id: cond_duplicate
+          condition: =Topic.Result = "Duplicate"
+          actions:
+            - kind: AdaptiveCardPrompt
+              id: card_duplicate
+              card: |-
+                ={
+                  type: "AdaptiveCard",
+                  version: "1.5",
+                  body: [
+                    { type: "TextBlock", text: "You already have an open " & Text(Topic.CategoryFinal) & " ticket: " & Text(Topic.TicketNumber) & " (" & Text(Topic.ExistingStatus) & ").", wrap: true },
+                    { type: "TextBlock", text: "Shall I add your message to that ticket, or open a separate one?", wrap: true }
+                  ],
+                  actions: [
+                    { type: "Action.Submit", title: "Add to " & Text(Topic.TicketNumber), data: { action: "add" } },
+                    { type: "Action.Submit", title: "Open a separate ticket", data: { action: "new" } }
+                  ]
+                }
+              output:
+                binding:
+                  action: Topic.DupChoice
+
+              outputType:
+                properties:
+                  action: String
+
+            - kind: ConditionGroup
+              id: cond_dup_choice
+              conditions:
+                - id: cond_dup_add
+                  condition: =Topic.DupChoice = "add"
+                  actions:
+                    - kind: InvokeFlowAction
+                      id: flow_add_reply
+                      input:
+                        binding:
+                          text: =Topic.TicketNumber
+                          text_1: =Global.ContactId
+                          text_2: =Topic.Description
+
+                      output:
+                        binding:
+                          message: Topic.ReplyMessage
+                          result: Topic.ReplyResult
+
+                      flowId: 5a822f8a-f6cd-f111-a05a-6045bd565bd6
+
+                    - kind: SendActivity
+                      id: msg_added
+                      activity: "{If(Topic.ReplyResult = \"Added\", Topic.ReplyMessage, \"Sorry, I couldn't add your message just now. Please try again in a few minutes.\")}"
+
+              elseActions:
+                - kind: InvokeFlowAction
+                  id: flow_create_dup
+                  input:
+                    binding:
+                      text: =Global.ContactId
+                      text_1: =If(Topic.OrderPicked = "NONE", "", Topic.OrderPicked)
+                      text_2: =Topic.CategoryFinal
+                      text_3: =Topic.SubjectFinal
+                      text_4: =Topic.Description
+                      text_5: =Topic.Summary
+                      text_6: =Topic.PriorityFinal
+                      text_7: ="yes"
+                      text_8: =Global.CustomerEmail
+
+                  output:
+                    binding:
+                      duplicate: Topic.Duplicate
+                      priority: Topic.TicketPriority
+                      resolveby: Topic.ResolveBy
+                      respondby: Topic.RespondBy
+                      result: Topic.Result
+                      status: Topic.ExistingStatus
+                      team: Topic.Team
+                      ticketnumber: Topic.TicketNumber
+
+                  flowId: 3b356e61-f6cd-f111-a05a-6045bd565bd6
+
+                - kind: SendActivity
+                  id: msg_created_dup
+                  activity: |-
+                    Done. Your new ticket is **{Topic.TicketNumber}**.
+
+                    - Team: {Topic.Team}
+                    - Priority: {Topic.TicketPriority}
+                    - First reply by: {Topic.RespondBy}
+
+                    I've emailed you a confirmation.
+
+      elseActions:
+        - kind: SendActivity
+          id: msg_create_error
+          activity: Sorry, something went wrong while creating your ticket. Please try again in a few minutes, or ask to talk to a person.
+
+inputType:
+  properties:
+    IssueDescription:
+      displayName: IssueDescription
+      description: The customer's problem in their own words, if already given.
+      type: String

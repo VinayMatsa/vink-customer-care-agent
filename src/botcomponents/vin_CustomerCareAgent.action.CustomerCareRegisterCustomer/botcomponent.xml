@@ -1,0 +1,11 @@
+<botcomponent schemaname="vin_CustomerCareAgent.action.CustomerCareRegisterCustomer">
+  <componenttype>9</componenttype>
+  <description>Registers a new customer. Used by the Identify Customer topic only.</description>
+  <iscustomizable>1</iscustomizable>
+  <name>Customer Care – Register Customer</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

@@ -1,0 +1,25 @@
+kind: TaskDialog
+modelDescription: "Runs the fixed RMA (return authorisation) process for a confirmed warranty claim: verifies the warranty from the order serial number, creates the warranty claim, service ticket and courier booking, and emails the return label. Only use it after the customer has confirmed the claim summary in the Warranty Claim topic."
+outputs:
+  - propertyName: inwarranty
+
+  - propertyName: claimnumber
+
+  - propertyName: rmanumber
+
+  - propertyName: ticketnumber
+
+  - propertyName: warrantyend
+
+  - propertyName: outcome
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: 1346cd27-1acd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

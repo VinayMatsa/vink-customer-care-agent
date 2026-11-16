@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="vin_CCSupportMailbox">
+  <description default="Mailbox that receives escalations, new urgent tickets and the daily SLA report">
+    <label description="Mailbox that receives escalations, new urgent tickets and the daily SLA report" languagecode="1033" />
+  </description>
+  <displayname default="CC Support Mailbox">
+    <label description="CC Support Mailbox" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

@@ -1,0 +1,11 @@
+<botcomponent schemaname="vin_CustomerCareAgent.topic.WarrantyClaim">
+  <componenttype>9</componenttype>
+  <description>Collects warranty claim details, confirms them on an adaptive card, and runs the RMA process.</description>
+  <iscustomizable>1</iscustomizable>
+  <name>Warranty Claim</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

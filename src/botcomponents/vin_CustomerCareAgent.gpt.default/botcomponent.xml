@@ -1,0 +1,11 @@
+<botcomponent schemaname="vin_CustomerCareAgent.gpt.default">
+  <componenttype>15</componenttype>
+  <description>Customer care for Vink Electronics (fictional). Verifies customers, raises support tickets with AI triage, tracks tickets and orders, handles warranty claims and returns, escalates to a person, collects satisfaction ratings, and updates customers automatically when a returned product is scanned and repaired.</description>
+  <iscustomizable>0</iscustomizable>
+  <name>Vink Customer Care Agent</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

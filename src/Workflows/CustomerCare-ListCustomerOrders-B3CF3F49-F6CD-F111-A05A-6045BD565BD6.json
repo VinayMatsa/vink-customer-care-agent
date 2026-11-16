@@ -1,0 +1,291 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "3a5e1d20-e134-44f8-a0c4-291dbe207306"
+          },
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "ContactId",
+                  "description": "Dataverse contact id of the verified customer",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_count": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "39790634-197b-4fe1-976a-14b67318835d"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vCount",
+                "type": "string",
+                "value": "0"
+              }
+            ]
+          }
+        },
+        "Init_choices": {
+          "runAfter": {
+            "Init_count": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "b04684e8-52b5-4fa1-88b8-184f473937bf"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vChoices",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_list": {
+          "runAfter": {
+            "Init_choices": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "0bd2b5a1-6a84-4b24-b703-295bf2b48d76"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vList",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Try": {
+          "actions": {
+            "Orders": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "fa76dfb4-2ddc-4942-b505-e511b84eac77"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccorders",
+                  "$select": "vin_ordernumber,vin_orderdate,vin_orderstatus,vin_trackingnumber",
+                  "$filter": "_vin_customercontact_value eq @{trim(triggerBody()?['text'])}",
+                  "$orderby": "vin_orderdate desc",
+                  "$expand": "vin_Product($select=vin_name,vin_warrantymonths)"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Choices": {
+              "runAfter": {
+                "Orders": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "d3c65fa2-f15a-409b-ac2e-2abe328c603a"
+              },
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Orders')?['body/value']",
+                "select": "@concat(item()?['vin_ordernumber'],'~',item()?['vin_ordernumber'],' · ',coalesce(item()?['vin_Product']?['vin_name'],'Order'),' · ',formatDateTime(item()?['vin_orderdate'],'dd MMM yyyy'),' · ',item()?['vin_orderstatus@OData.Community.Display.V1.FormattedValue'])"
+              }
+            },
+            "Lines": {
+              "runAfter": {
+                "Choices": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "d8b0619e-fa1d-4f2b-9c9a-763d7b0a8d91"
+              },
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Orders')?['body/value']",
+                "select": "@concat('- **',item()?['vin_ordernumber'],'**: ',coalesce(item()?['vin_Product']?['vin_name'],'Order'),', ',formatDateTime(item()?['vin_orderdate'],'dd MMM yyyy'),', ',item()?['vin_orderstatus@OData.Community.Display.V1.FormattedValue'],if(empty(item()?['vin_trackingnumber']),'',concat(' (tracking ',item()?['vin_trackingnumber'],')')))"
+              }
+            },
+            "Set_count": {
+              "runAfter": {
+                "Lines": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "e102019e-d56d-4584-ba82-fe53e71109ac"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vCount",
+                "value": "@{length(outputs('Orders')?['body/value'])}"
+              }
+            },
+            "Set_choices": {
+              "runAfter": {
+                "Set_count": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "fb1887a5-ba74-4e65-8771-982796affc87"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vChoices",
+                "value": "@{join(body('Choices'),'|')}"
+              }
+            },
+            "Set_list": {
+              "runAfter": {
+                "Set_choices": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "f06c1dad-41c7-4082-8fb1-0ef9a670f8f4"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vList",
+                "value": "@{join(body('Lines'),decodeUriComponent('%0A'))}"
+              }
+            }
+          },
+          "runAfter": {
+            "Init_list": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "b91e6980-be99-4d33-80d7-eaf6dc395a7a"
+          },
+          "type": "Scope"
+        },
+        "Catch": {
+          "actions": {
+            "Set_vCount_0": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "ba8cc040-efb6-455e-8faa-0382bd03ffd1"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vCount",
+                "value": "-1"
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "f91ccd79-8bae-4574-ade9-0ce661566762"
+          },
+          "type": "Scope"
+        },
+        "Respond": {
+          "runAfter": {
+            "Catch": [
+              "Succeeded",
+              "Skipped"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "63635549-1f8e-4636-a48d-2a8959a1783d"
+          },
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "ordercount": "@{variables('vCount')}",
+              "orderchoices": "@{variables('vChoices')}",
+              "orderlist": "@{variables('vList')}"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ordercount": {
+                  "title": "ordercount",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "orderchoices": {
+                  "title": "orderchoices",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "orderlist": {
+                  "title": "orderlist",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

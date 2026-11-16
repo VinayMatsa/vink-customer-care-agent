@@ -1,0 +1,298 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "9dea0e68-9247-4880-aa97-62bec0120da0"
+          },
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "ContactId",
+                  "description": "ContactId",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_1": {
+                  "title": "Scope",
+                  "description": "open (default) or all",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_count": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "2d6618b8-9c21-4f3a-99a7-7f86a3051884"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vCount",
+                "type": "string",
+                "value": "0"
+              }
+            ]
+          }
+        },
+        "Init_choices": {
+          "runAfter": {
+            "Init_count": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "4eea1bf9-50a5-42bd-89bf-c73969145f47"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vChoices",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_list": {
+          "runAfter": {
+            "Init_choices": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "49313e01-a7c7-4005-b998-ad9c98e233e4"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vList",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Try": {
+          "actions": {
+            "Tickets": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "f293b7ad-28e3-4634-9c40-3ca0e17fece0"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "$select": "vin_ticketnumber,vin_subject,vin_ticketstatus,modifiedon",
+                  "$filter": "_vin_customer_value eq @{trim(triggerBody()?['text'])}@{if(equals(toLower(coalesce(triggerBody()?['text_1'],'open')),'all'),'',' and vin_ticketstatus ne 949870005')}",
+                  "$orderby": "modifiedon desc",
+                  "$top": 10
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Choices": {
+              "runAfter": {
+                "Tickets": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "94bb8fab-db5f-4184-aaac-524d33e1b21d"
+              },
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Tickets')?['body/value']",
+                "select": "@concat(item()?['vin_ticketnumber'],'~',item()?['vin_ticketnumber'],' · ',item()?['vin_subject'],' · ',item()?['vin_ticketstatus@OData.Community.Display.V1.FormattedValue'])"
+              }
+            },
+            "Lines": {
+              "runAfter": {
+                "Choices": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "ea82f8a9-2c47-4d32-af7e-bd56dc76701c"
+              },
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Tickets')?['body/value']",
+                "select": "@concat('- **',item()?['vin_ticketnumber'],'**: ',item()?['vin_subject'],' (',item()?['vin_ticketstatus@OData.Community.Display.V1.FormattedValue'],')')"
+              }
+            },
+            "Set_count": {
+              "runAfter": {
+                "Lines": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "8b8dec47-754c-4261-929e-d42bc688cde2"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vCount",
+                "value": "@{length(outputs('Tickets')?['body/value'])}"
+              }
+            },
+            "Set_choices": {
+              "runAfter": {
+                "Set_count": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "5bc5134a-ae36-4083-8698-c4481ad86411"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vChoices",
+                "value": "@{join(body('Choices'),'|')}"
+              }
+            },
+            "Set_list": {
+              "runAfter": {
+                "Set_choices": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "5d15fb76-85ed-461f-9554-8cd028844d7d"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vList",
+                "value": "@{join(body('Lines'),decodeUriComponent('%0A'))}"
+              }
+            }
+          },
+          "runAfter": {
+            "Init_list": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "9c5ab1ff-13ee-450a-bb0a-dcdf6626f14d"
+          },
+          "type": "Scope"
+        },
+        "Catch": {
+          "actions": {
+            "Set_vCount_0": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "2eb8c7a8-144a-44b8-b98c-5d92b6e99c0f"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vCount",
+                "value": "-1"
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "f2b0b636-b40d-4f07-9866-919470bb68c2"
+          },
+          "type": "Scope"
+        },
+        "Respond": {
+          "runAfter": {
+            "Catch": [
+              "Succeeded",
+              "Skipped"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "a87a82cb-338b-45d3-928f-342f86577610"
+          },
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "ticketcount": "@{variables('vCount')}",
+              "ticketchoices": "@{variables('vChoices')}",
+              "ticketlist": "@{variables('vList')}"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ticketcount": {
+                  "title": "ticketcount",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "ticketchoices": {
+                  "title": "ticketchoices",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "ticketlist": {
+                  "title": "ticketlist",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

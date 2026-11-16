@@ -1,0 +1,413 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccOutlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "CC Support Mailbox (vin_CCSupportMailbox)": {
+          "defaultValue": "support@example.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "vin_CCSupportMailbox",
+            "description": "Mailbox that receives escalations, new urgent tickets and the daily SLA report"
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "3fc59b15-03f3-40b5-8dd5-e361aac8fbab"
+          },
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "TicketNumber",
+                  "description": "TicketNumber",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_1": {
+                  "title": "ContactId",
+                  "description": "ContactId",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_2": {
+                  "title": "Reason",
+                  "description": "Reason",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text",
+                "text_1"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_r": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "ecd366d2-d0ac-4aa2-a1aa-a81d594fc566"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vResult",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_t": {
+          "runAfter": {
+            "Init_r": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "d81ecff2-bcb4-4888-8fd9-4aadc5375595"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vTeam",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Try": {
+          "actions": {
+            "Find_ticket": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "73487677-283c-47a7-a982-e058704d7d87"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "$filter": "vin_ticketnumber eq '@{toUpper(trim(triggerBody()?['text']))}'",
+                  "$top": 1,
+                  "$expand": "vin_SupportTeam($select=vin_name),vin_Customer($select=fullname,emailaddress1)"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "T": {
+              "runAfter": {
+                "Find_ticket": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "31d25455-9e45-4203-adf1-d5f273b89aba"
+              },
+              "type": "Compose",
+              "inputs": "@first(outputs('Find_ticket')?['body/value'])"
+            },
+            "Check": {
+              "actions": {
+                "Is_closed": {
+                  "actions": {
+                    "Set_closed": {
+                      "runAfter": {},
+                      "metadata": {
+                        "operationMetadataId": "7b00a43b-4501-40c0-aba1-e5614ab36192"
+                      },
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "vResult",
+                        "value": "Closed"
+                      }
+                    }
+                  },
+                  "runAfter": {},
+                  "else": {
+                    "actions": {
+                      "Escalate": {
+                        "runAfter": {},
+                        "metadata": {
+                          "operationMetadataId": "f56becc6-9d67-48df-a8b2-1b072b5329e6"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_commondataserviceforapps",
+                            "operationId": "UpdateRecord",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                          },
+                          "parameters": {
+                            "entityName": "vin_ccservicetickets",
+                            "recordId": "@outputs('T')?['vin_ccserviceticketid']",
+                            "item/vin_latestupdate": "You asked to speak to a person. A senior member of the @{outputs('T')?['vin_SupportTeam']?['vin_name']} team will contact you within one business day (Monday to Saturday, 9:00 to 18:00).",
+                            "item/vin_ticketstatus": 949870008
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Add_update": {
+                        "runAfter": {
+                          "Escalate": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "153b9931-f19c-4a40-a630-a620eb8ac576"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_commondataserviceforapps",
+                            "operationId": "CreateRecord",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                          },
+                          "parameters": {
+                            "entityName": "vin_ccticketupdates",
+                            "item/vin_statusafter": "Escalated",
+                            "item/vin_Ticket@odata.bind": "/vin_ccservicetickets(@{outputs('T')?['vin_ccserviceticketid']})",
+                            "item/vin_updatetext": "@{coalesce(triggerBody()?['text_2'],'No reason given.')}",
+                            "item/vin_name": "Customer asked for a person",
+                            "item/vin_updatedby": "@{outputs('T')?['vin_Customer']?['fullname']}",
+                            "item/vin_updatedon": "@{utcNow()}",
+                            "item/vin_visibletocustomer": true
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Alert_support": {
+                        "runAfter": {
+                          "Add_update": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "cd4672d1-4b45-470f-b82c-474cdd57d1b6"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "host": {
+                            "connectionName": "shared_office365",
+                            "operationId": "SendEmailV2",
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                          },
+                          "parameters": {
+                            "emailMessage/To": "@{parameters('CC Support Mailbox (vin_CCSupportMailbox)')}",
+                            "emailMessage/Subject": "Escalation: @{outputs('T')?['vin_ticketnumber']} – @{outputs('T')?['vin_subject']}",
+                            "emailMessage/Body": "<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e1e4e8;border-radius:8px;overflow:hidden\"><div style=\"background:#0b5cad;color:#ffffff;padding:16px 24px;font-size:18px;font-weight:600\">Vink Electronics Customer Care</div><div style=\"padding:20px 24px;color:#1f2328;font-size:14px;line-height:1.6\"><h2 style=\"font-size:17px;margin:0 0 12px 0\">A customer asked to speak to a person</h2><table style=\"border-collapse:collapse;font-size:14px\"><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Ticket</td><td style=\"padding:4px 0\"><b>@{outputs('T')?['vin_ticketnumber']}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Customer</td><td style=\"padding:4px 0\"><b>@{outputs('T')?['vin_Customer']?['fullname']} (@{outputs('T')?['vin_Customer']?['emailaddress1']})</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Subject</td><td style=\"padding:4px 0\"><b>@{outputs('T')?['vin_subject']}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Priority</td><td style=\"padding:4px 0\"><b>@{outputs('T')?['vin_priority@OData.Community.Display.V1.FormattedValue']}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Team</td><td style=\"padding:4px 0\"><b>@{outputs('T')?['vin_SupportTeam']?['vin_name']}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Reason</td><td style=\"padding:4px 0\"><b>@{coalesce(triggerBody()?['text_2'],'No reason given.')}</b></td></tr></table><p>Contact the customer within one business day and update the ticket in Vink Care Hub.</p><p style=\"margin-top:20px\">Vink Electronics Customer Care</p></div><div style=\"background:#f6f8fa;padding:12px 24px;color:#57606a;font-size:12px\">Vink Electronics is a fictional retailer used for a Power Platform demo.</div></div>",
+                            "emailMessage/Importance": "High"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Set_ok": {
+                        "runAfter": {
+                          "Alert_support": [
+                            "Succeeded",
+                            "Failed",
+                            "TimedOut",
+                            "Skipped"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "497099d7-bc78-433b-a62d-517cba59ae97"
+                        },
+                        "type": "SetVariable",
+                        "inputs": {
+                          "name": "vResult",
+                          "value": "Escalated"
+                        }
+                      },
+                      "Set_team": {
+                        "runAfter": {
+                          "Set_ok": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "operationMetadataId": "9cc0706f-7472-464e-811f-ca0ac1081fb0"
+                        },
+                        "type": "SetVariable",
+                        "inputs": {
+                          "name": "vTeam",
+                          "value": "@{outputs('T')?['vin_SupportTeam']?['vin_name']}"
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@outputs('T')?['vin_ticketstatus@OData.Community.Display.V1.FormattedValue']",
+                          "Closed"
+                        ]
+                      }
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "82e3be16-90d7-44cc-b46d-248e68440c6b"
+                  },
+                  "type": "If"
+                }
+              },
+              "runAfter": {
+                "T": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {
+                  "Set_nf": {
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "5b1c24ab-934a-4f5c-a599-551ac410074d"
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                      "name": "vResult",
+                      "value": "@{if(empty(outputs('T')),'NotFound','NotYours')}"
+                    }
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@and(not(empty(outputs('T'))),equals(toLower(coalesce(outputs('T')?['_vin_customer_value'],'')),toLower(trim(triggerBody()?['text_1']))))",
+                      true
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "409d5dd4-3b2b-4fcc-9064-5e8d6efb6103"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Init_t": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "63399a40-f551-4e3f-a53e-6151f208e328"
+          },
+          "type": "Scope"
+        },
+        "Catch": {
+          "actions": {
+            "Set_vResult_0": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "9569137d-f99d-49da-bcf3-2c4d965da80c"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vResult",
+                "value": "Error"
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "8554d72a-7871-468a-8e0f-55a6723d8c17"
+          },
+          "type": "Scope"
+        },
+        "Respond": {
+          "runAfter": {
+            "Catch": [
+              "Succeeded",
+              "Skipped"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "8c47c443-0305-4ddf-b50b-c6c64e4d1912"
+          },
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "result": "@{variables('vResult')}",
+              "team": "@{variables('vTeam')}"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "title": "result",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "team": {
+                  "title": "team",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

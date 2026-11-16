@@ -1,0 +1,13 @@
+<environmentvariabledefinition schemaname="vin_CCCustomerEmailOverride">
+  <description default="Demo safety: when set, every customer email is sent here instead of the customer address. Clear it in production.">
+    <label description="Demo safety: when set, every customer email is sent here instead of the customer address. Clear it in production." languagecode="1033" />
+  </description>
+  <displayname default="CC Customer Email Override">
+    <label description="CC Customer Email Override" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

@@ -1,0 +1,306 @@
+kind: AdaptiveDialog
+modelDescription: Identifies and verifies the customer (email plus an order number or customer number) or registers a new customer. Other topics call it before they show or change anything on a customer's account. Use it when the customer wants to sign in, verify themselves or create an account.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Identify Customer
+    triggerQueries:
+      - Verify my account
+      - I want to sign in to my account
+      - I'm a new customer, create my account
+      - Register me as a customer
+      - Who am I signed in as
+
+  actions:
+    - kind: ConditionGroup
+      id: cond_already
+      conditions:
+        - id: cond_already_yes
+          condition: =Global.CustomerVerified = true
+          actions:
+            - kind: EndDialog
+              id: end_already
+
+    - kind: SetVariable
+      id: init_current_ticket
+      variable: init:Global.CurrentTicket
+      value: =""
+
+    - kind: SetVariable
+      id: set_attempts
+      variable: init:Topic.Attempts
+      value: =0
+
+    - kind: Question
+      id: q_email
+      interruptionPolicy:
+        allowInterruption: true
+
+      alwaysPrompt: true
+      variable: init:Topic.Email
+      prompt: To look up your account, what's your email address?
+      entity: EmailPrebuiltEntity
+
+    - kind: InvokeFlowAction
+      id: flow_find_email
+      input:
+        binding:
+          text: =Topic.Email
+          text_1: =""
+
+      output:
+        binding:
+          status: Topic.Status
+          contactid: Topic.ContactId
+          firstname: Topic.FirstName
+          fullname: Topic.FullName
+          customernumber: Topic.CustomerNumber
+          isvip: Topic.IsVIP
+          openticketcount: Topic.OpenCount
+          openticketsummary: Topic.OpenSummary
+
+      flowId: 4476491c-f6cd-f111-a05a-6045bd565bd6
+
+    - kind: ConditionGroup
+      id: cond_status
+      conditions:
+        - id: cond_notfound
+          condition: =Topic.Status = "NotFound"
+          actions:
+            - kind: AdaptiveCardPrompt
+              id: card_new
+              card: |-
+                ={
+                  type: "AdaptiveCard",
+                  version: "1.5",
+                  body: [
+                    { type: "TextBlock", text: "I couldn't find an account for " & Text(Topic.Email) & ". Are you new to Vink Electronics?", wrap: true }
+                  ],
+                  actions: [
+                    { type: "Action.Submit", title: "Yes, create my account", data: { action: "register" } },
+                    { type: "Action.Submit", title: "Try a different email", data: { action: "retry" } }
+                  ]
+                }
+              output:
+                binding:
+                  action: Topic.NewChoice
+
+              outputType:
+                properties:
+                  action: String
+
+            - kind: ConditionGroup
+              id: cond_new
+              conditions:
+                - id: cond_retry
+                  condition: =Topic.NewChoice = "retry"
+                  actions:
+                    - kind: GotoAction
+                      id: goto_email
+                      actionId: q_email
+
+              elseActions:
+                - kind: Question
+                  id: q_first
+                  alwaysPrompt: true
+                  variable: init:Topic.NewFirst
+                  prompt: Great, let's set you up. What's your first name?
+                  entity: StringPrebuiltEntity
+
+                - kind: Question
+                  id: q_last
+                  alwaysPrompt: true
+                  variable: init:Topic.NewLast
+                  prompt: And your last name?
+                  entity: StringPrebuiltEntity
+
+                - kind: Question
+                  id: q_phone
+                  alwaysPrompt: true
+                  variable: init:Topic.NewPhone
+                  prompt: What phone number can our team call you on if needed?
+                  entity: StringPrebuiltEntity
+
+                - kind: InvokeFlowAction
+                  id: flow_register
+                  input:
+                    binding:
+                      text: =Topic.NewFirst
+                      text_1: =Topic.NewLast
+                      text_2: =Topic.Email
+                      text_3: =Topic.NewPhone
+
+                  output:
+                    binding:
+                      contactid: Topic.ContactId
+                      customernumber: Topic.CustomerNumber
+                      fullname: Topic.FullName
+                      status: Topic.RegStatus
+
+                  flowId: 82e5e122-f6cd-f111-a05a-6045bd565bd6
+
+                - kind: ConditionGroup
+                  id: cond_reg
+                  conditions:
+                    - id: cond_reg_ok
+                      condition: =Topic.RegStatus = "Created" || Topic.RegStatus = "Exists"
+                      actions:
+                        - kind: SetVariable
+                          id: set_first_new
+                          variable: Topic.FirstName
+                          value: =Topic.NewFirst
+
+                        - kind: SetVariable
+                          id: set_vip_new
+                          variable: Topic.IsVIP
+                          value: ="No"
+
+                        - kind: SetVariable
+                          id: setGlobal_new_0
+                          variable: Global.ContactId
+                          value: =Topic.ContactId
+                        - kind: SetVariable
+                          id: setGlobal_new_1
+                          variable: Global.CustomerFirstName
+                          value: =Topic.FirstName
+                        - kind: SetVariable
+                          id: setGlobal_new_2
+                          variable: Global.CustomerFullName
+                          value: =Topic.FullName
+                        - kind: SetVariable
+                          id: setGlobal_new_3
+                          variable: Global.CustomerEmail
+                          value: =Topic.Email
+                        - kind: SetVariable
+                          id: setGlobal_new_4
+                          variable: Global.CustomerNumber
+                          value: =Topic.CustomerNumber
+                        - kind: SetVariable
+                          id: setGlobal_new_5
+                          variable: Global.IsVIP
+                          value: =Topic.IsVIP
+                        - kind: SetVariable
+                          id: setGlobal_new_v
+                          variable: Global.CustomerVerified
+                          value: =true
+
+                        - kind: SendActivity
+                          id: msg_welcome_new
+                          activity: Welcome to Vink Electronics, {Topic.NewFirst}! Your account is ready and your customer number is **{Topic.CustomerNumber}**. Keep it handy to verify yourself next time. I've also emailed it to you.
+
+                  elseActions:
+                    - kind: SendActivity
+                      id: msg_reg_error
+                      activity: Sorry, I couldn't create your account just now. Please try again in a few minutes.
+
+                    - kind: CancelAllDialogs
+                      id: cancel_reg
+
+        - id: cond_need
+          condition: =Topic.Status = "NeedVerification"
+          actions:
+            - kind: Question
+              id: q_ref
+              interruptionPolicy:
+                allowInterruption: true
+
+              alwaysPrompt: true
+              variable: init:Topic.Ref
+              prompt: Thanks, {Topic.FirstName}. To confirm it's you, please give one of your order numbers (like ORD-10421) or your customer number (like CUST-1001).
+              entity: StringPrebuiltEntity
+
+            - kind: InvokeFlowAction
+              id: flow_find_ref
+              input:
+                binding:
+                  text: =Topic.Email
+                  text_1: =Topic.Ref
+
+              output:
+                binding:
+                  status: Topic.Status
+                  contactid: Topic.ContactId
+                  firstname: Topic.FirstName
+                  fullname: Topic.FullName
+                  customernumber: Topic.CustomerNumber
+                  isvip: Topic.IsVIP
+                  openticketcount: Topic.OpenCount
+                  openticketsummary: Topic.OpenSummary
+
+              flowId: 4476491c-f6cd-f111-a05a-6045bd565bd6
+
+            - kind: ConditionGroup
+              id: cond_verified
+              conditions:
+                - id: cond_verified_yes
+                  condition: =Topic.Status = "Verified"
+                  actions:
+                    - kind: SetVariable
+                      id: setGlobal_ver_0
+                      variable: Global.ContactId
+                      value: =Topic.ContactId
+                    - kind: SetVariable
+                      id: setGlobal_ver_1
+                      variable: Global.CustomerFirstName
+                      value: =Topic.FirstName
+                    - kind: SetVariable
+                      id: setGlobal_ver_2
+                      variable: Global.CustomerFullName
+                      value: =Topic.FullName
+                    - kind: SetVariable
+                      id: setGlobal_ver_3
+                      variable: Global.CustomerEmail
+                      value: =Topic.Email
+                    - kind: SetVariable
+                      id: setGlobal_ver_4
+                      variable: Global.CustomerNumber
+                      value: =Topic.CustomerNumber
+                    - kind: SetVariable
+                      id: setGlobal_ver_5
+                      variable: Global.IsVIP
+                      value: =Topic.IsVIP
+                    - kind: SetVariable
+                      id: setGlobal_ver_v
+                      variable: Global.CustomerVerified
+                      value: =true
+
+                    - kind: SendActivity
+                      id: msg_welcome
+                      activity: "{If(Topic.IsVIP = \"Yes\", \"Thanks, \" & Topic.FirstName & \". You're verified, and as a VIP customer your tickets get priority.\", \"Thanks, \" & Topic.FirstName & \", you're verified.\")}{If(Value(Topic.OpenCount) > 0, \" You have \" & Topic.OpenCount & \" open ticket(s):\" & Char(10) & Char(10) & Topic.OpenSummary, \"\")}"
+
+              elseActions:
+                - kind: SetVariable
+                  id: inc_attempts
+                  variable: Topic.Attempts
+                  value: =Topic.Attempts + 1
+
+                - kind: ConditionGroup
+                  id: cond_retry_ref
+                  conditions:
+                    - id: cond_retry_ref_yes
+                      condition: =Topic.Attempts < 2
+                      actions:
+                        - kind: SendActivity
+                          id: msg_nomatch
+                          activity: That doesn't match our records for this email. Please check it and try again.
+
+                        - kind: GotoAction
+                          id: goto_ref
+                          actionId: q_ref
+
+                  elseActions:
+                    - kind: SendActivity
+                      id: msg_cant_verify
+                      activity: I'm sorry, I can't verify your account, so I can't show or change your orders and tickets. Please contact us from the email address on your order, or call our customer care team.
+
+                    - kind: CancelAllDialogs
+                      id: cancel_verify
+
+      elseActions:
+        - kind: SendActivity
+          id: msg_lookup_error
+          activity: Sorry, I couldn't reach our customer system just now. Please try again in a few minutes.
+
+        - kind: CancelAllDialogs
+          id: cancel_error

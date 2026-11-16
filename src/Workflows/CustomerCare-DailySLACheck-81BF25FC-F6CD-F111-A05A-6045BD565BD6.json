@@ -1,0 +1,412 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccOutlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "CC Support Mailbox (vin_CCSupportMailbox)": {
+          "defaultValue": "support@example.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "vin_CCSupportMailbox",
+            "description": "Mailbox that receives escalations, new urgent tickets and the daily SLA report"
+          }
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "timeZone": "UTC",
+            "startTime": "2026-10-23T03:00:00Z"
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Day",
+            "interval": 1,
+            "startTime": "2026-10-23T03:00:00Z",
+            "timeZone": "UTC"
+          },
+          "metadata": {
+            "operationMetadataId": "fe7ac12a-57a5-4200-b67d-095b5c5f645b"
+          },
+          "type": "Recurrence"
+        }
+      },
+      "actions": {
+        "Try": {
+          "actions": {
+            "Newly_overdue": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "d2457851-0d12-4125-b50d-59c2a14bc472"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "$select": "vin_ccserviceticketid",
+                  "$filter": "vin_ticketstatus ne 949870005 and vin_ticketstatus ne 949870009 and vin_isoverdue ne true and vin_resolveby lt @{utcNow()}"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Flag_each": {
+              "foreach": "@outputs('Newly_overdue')?['body/value']",
+              "actions": {
+                "Flag_overdue": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "0ade9a32-8076-40e2-899c-497a4ad7f75e"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "UpdateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccservicetickets",
+                      "recordId": "@items('Flag_each')?['vin_ccserviceticketid']",
+                      "item/vin_isoverdue": true
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Newly_overdue": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "acba6df4-4800-4343-81f6-7cb93fe80773"
+              },
+              "type": "Foreach"
+            },
+            "Stale_awaiting": {
+              "runAfter": {
+                "Flag_each": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "9638bc89-c2ac-41a8-94df-3b8b351bab70"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "$select": "vin_ccserviceticketid",
+                  "$filter": "vin_ticketstatus eq 949870007 and modifiedon lt @{addDays(utcNow(),-7)}"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Close_stale": {
+              "foreach": "@outputs('Stale_awaiting')?['body/value']",
+              "actions": {
+                "Close_no_reply": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "01c57825-90b3-4b90-a992-078c98d1f5f4"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "UpdateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccservicetickets",
+                      "recordId": "@items('Close_stale')?['vin_ccserviceticketid']",
+                      "item/vin_latestupdate": "Closed because we did not hear back from you for 7 days. Raise a new ticket any time if you still need help.",
+                      "item/vin_ticketstatus": 949870005
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Stale_awaiting": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "0e170f95-7555-4e4b-aedd-6f681c0fd617"
+              },
+              "type": "Foreach"
+            },
+            "Old_resolved": {
+              "runAfter": {
+                "Close_stale": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "a03abebc-dada-47b7-96c6-0cae5892bfcd"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "$select": "vin_ccserviceticketid",
+                  "$filter": "vin_ticketstatus eq 949870009 and vin_resolvedon lt @{addDays(utcNow(),-7)}"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Close_resolved": {
+              "foreach": "@outputs('Old_resolved')?['body/value']",
+              "actions": {
+                "Close_after_resolve": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "17805c6b-f37c-43f8-bd63-a252c83ed262"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "UpdateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccservicetickets",
+                      "recordId": "@items('Close_resolved')?['vin_ccserviceticketid']",
+                      "item/vin_latestupdate": "Closed 7 days after it was resolved.",
+                      "item/vin_ticketstatus": 949870005
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Old_resolved": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "2d8b2e3c-bbf8-43ff-af11-a4a152413893"
+              },
+              "type": "Foreach"
+            },
+            "All_overdue": {
+              "runAfter": {
+                "Close_resolved": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "595e5f41-80b3-4700-b07a-5f691c2bc2e3"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "$select": "vin_ticketnumber,vin_subject,vin_priority,vin_ticketstatus,vin_resolveby",
+                  "$filter": "vin_ticketstatus ne 949870005 and vin_ticketstatus ne 949870009 and vin_isoverdue eq true",
+                  "$orderby": "vin_resolveby asc",
+                  "$expand": "vin_SupportTeam($select=vin_name),vin_Customer($select=fullname)"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Rows": {
+              "runAfter": {
+                "All_overdue": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "5d22ed9d-36f7-4853-b95f-8e9b30b3aa82"
+              },
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('All_overdue')?['body/value']",
+                "select": {
+                  "Ticket": "@item()?['vin_ticketnumber']",
+                  "Customer": "@item()?['vin_Customer']?['fullname']",
+                  "Subject": "@item()?['vin_subject']",
+                  "Priority": "@item()?['vin_priority@OData.Community.Display.V1.FormattedValue']",
+                  "Status": "@item()?['vin_ticketstatus@OData.Community.Display.V1.FormattedValue']",
+                  "Team": "@item()?['vin_SupportTeam']?['vin_name']",
+                  "Was due": "@formatDateTime(item()?['vin_resolveby'],'dd MMM, HH:mm')"
+                }
+              }
+            },
+            "Table": {
+              "runAfter": {
+                "Rows": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "b0f871bf-8916-40da-a3a0-d9ed3d082235"
+              },
+              "type": "Table",
+              "inputs": {
+                "from": "@body('Rows')",
+                "format": "HTML"
+              }
+            },
+            "Any_overdue": {
+              "actions": {
+                "Send_report": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "702cb892-c7a5-473f-af84-5fe0b6499629"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_office365",
+                      "operationId": "SendEmailV2",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                    },
+                    "parameters": {
+                      "emailMessage/To": "@{parameters('CC Support Mailbox (vin_CCSupportMailbox)')}",
+                      "emailMessage/Subject": "Daily SLA report: @{length(body('Rows'))} overdue ticket(s)",
+                      "emailMessage/Body": "<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e1e4e8;border-radius:8px;overflow:hidden\"><div style=\"background:#0b5cad;color:#ffffff;padding:16px 24px;font-size:18px;font-weight:600\">Vink Electronics Customer Care</div><div style=\"padding:20px 24px;color:#1f2328;font-size:14px;line-height:1.6\"><h2 style=\"font-size:17px;margin:0 0 12px 0\">@{length(body('Rows'))} ticket(s) are past their resolution target</h2><p>@{length(outputs('Newly_overdue')?['body/value'])} became overdue since yesterday. @{length(outputs('Stale_awaiting')?['body/value'])} were closed after 7 days with no customer reply.</p><div style=\"font-size:13px\">@{replace(replace(body('Table'),'<table>','<table style=\"border-collapse:collapse\" border=\"1\" cellpadding=\"6\">'),'<th>','<th style=\"background:#f6f8fa;text-align:left\">')}</div><p>Times are UTC. Work these first in Vink Care Hub (view: Overdue tickets).</p><p style=\"margin-top:20px\">Vink Electronics Customer Care</p></div><div style=\"background:#f6f8fa;padding:12px 24px;color:#57606a;font-size:12px\">Vink Electronics is a fictional retailer used for a Power Platform demo.</div></div>",
+                      "emailMessage/Importance": "Normal"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Table": [
+                  "Succeeded"
+                ]
+              },
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@length(body('Rows'))",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "e6229cd3-fa91-479e-ac4d-3bc1388a552a"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "c453e503-770e-4f81-8533-804703b97865"
+          },
+          "type": "Scope"
+        },
+        "Catch": {
+          "actions": {
+            "Alert_failure": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "eca4a7da-af70-4db1-967a-e8dd2655b2cb"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_office365",
+                  "operationId": "SendEmailV2",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                },
+                "parameters": {
+                  "emailMessage/To": "@{parameters('CC Support Mailbox (vin_CCSupportMailbox)')}",
+                  "emailMessage/Subject": "Flow failed: Customer Care – Daily SLA Check",
+                  "emailMessage/Body": "<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e1e4e8;border-radius:8px;overflow:hidden\"><div style=\"background:#0b5cad;color:#ffffff;padding:16px 24px;font-size:18px;font-weight:600\">Vink Electronics Customer Care</div><div style=\"padding:20px 24px;color:#1f2328;font-size:14px;line-height:1.6\"><h2 style=\"font-size:17px;margin:0 0 12px 0\">Customer Care – Daily SLA Check failed</h2><p>The flow failed. Open the run to see which step failed:</p><p><a href=\"@{concat('https://make.powerautomate.com/environments/',workflow()?['tags']?['environmentName'],'/flows/',workflow()?['name'],'/runs/',workflow()?['run']?['name'])}\">@{concat('https://make.powerautomate.com/environments/',workflow()?['tags']?['environmentName'],'/flows/',workflow()?['name'],'/runs/',workflow()?['run']?['name'])}</a></p><p style=\"margin-top:20px\">Vink Electronics Customer Care</p></div><div style=\"background:#f6f8fa;padding:12px 24px;color:#57606a;font-size:12px\">Vink Electronics is a fictional retailer used for a Power Platform demo.</div></div>",
+                  "emailMessage/Importance": "Normal"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Mark_failed": {
+              "runAfter": {
+                "Alert_failure": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "6fd94523-848c-4adb-a6a6-541efe90d3e6"
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CaughtFailure",
+                  "message": "See the failure email for the run link."
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "435f6871-33a4-45f9-a35b-5995308ccd20"
+          },
+          "type": "Scope"
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

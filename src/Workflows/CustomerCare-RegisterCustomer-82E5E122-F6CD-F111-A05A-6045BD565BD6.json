@@ -1,0 +1,512 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccOutlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "CC Customer Email Override (vin_CCCustomerEmailOverride)": {
+          "defaultValue": "support@example.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "vin_CCCustomerEmailOverride",
+            "description": "Demo safety: when set, every customer email is sent here instead of the customer address. Clear it in production."
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "a0ebb9f6-9de5-4267-88bf-c418eb1beb7b"
+          },
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "FirstName",
+                  "description": "FirstName",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_1": {
+                  "title": "LastName",
+                  "description": "LastName",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_2": {
+                  "title": "Email",
+                  "description": "Email",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_3": {
+                  "title": "Phone",
+                  "description": "Phone",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text",
+                "text_1",
+                "text_2"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_vStatus": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "e4ad4146-d5d8-46fc-a3b3-74e14ec98371"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vStatus",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vContactId": {
+          "runAfter": {
+            "Init_vStatus": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "d2d009cf-fc62-43ef-bee8-049d54181ec7"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vContactId",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vCustNo": {
+          "runAfter": {
+            "Init_vContactId": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "d72df9e6-abf4-4022-bd56-9de5801adec4"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vCustNo",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vFullName": {
+          "runAfter": {
+            "Init_vCustNo": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "18f78c4e-4987-435f-b744-9a5480101ef6"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vFullName",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Try": {
+          "actions": {
+            "Existing": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "0b89739e-275a-450a-a68f-913805940ff9"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "contacts",
+                  "$select": "contactid,fullname,vin_customernumber",
+                  "$filter": "emailaddress1 eq '@{toLower(trim(triggerBody()?['text_2']))}'",
+                  "$top": 1
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Already_exists": {
+              "actions": {
+                "Set_exists": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "b8e15382-a6a7-42ab-a6e5-86f6ad3f1a13"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vStatus",
+                    "value": "Exists"
+                  }
+                },
+                "Set_eid": {
+                  "runAfter": {
+                    "Set_exists": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "1a602398-99cf-4c7b-ad8a-e2017dd0024a"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vContactId",
+                    "value": "@{first(outputs('Existing')?['body/value'])?['contactid']}"
+                  }
+                },
+                "Set_eno": {
+                  "runAfter": {
+                    "Set_eid": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "7c325563-69c2-4406-a808-d1d7629879ea"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vCustNo",
+                    "value": "@{first(outputs('Existing')?['body/value'])?['vin_customernumber']}"
+                  }
+                },
+                "Set_ename": {
+                  "runAfter": {
+                    "Set_eno": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "e00a1722-255f-41f6-88f9-a2c345e01c43"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vFullName",
+                    "value": "@{first(outputs('Existing')?['body/value'])?['fullname']}"
+                  }
+                }
+              },
+              "runAfter": {
+                "Existing": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {
+                  "Create_contact": {
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "1b1f6420-b197-412f-ab73-8a8009cd23d3"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_commondataserviceforapps",
+                        "operationId": "CreateRecord",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                      },
+                      "parameters": {
+                        "entityName": "contacts",
+                        "item/lastname": "@{trim(triggerBody()?['text_1'])}",
+                        "item/telephone1": "@{triggerBody()?['text_3']}",
+                        "item/description": "Registered by the Vink Customer Care Agent.",
+                        "item/emailaddress1": "@{toLower(trim(triggerBody()?['text_2']))}",
+                        "item/firstname": "@{trim(triggerBody()?['text'])}",
+                        "item/vin_customersince": "@{formatDateTime(utcNow(),'yyyy-MM-dd')}"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    }
+                  },
+                  "Get_contact": {
+                    "runAfter": {
+                      "Create_contact": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "8b679c7a-6f74-4378-9236-89c54e16f776"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_commondataserviceforapps",
+                        "operationId": "GetItem",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                      },
+                      "parameters": {
+                        "entityName": "contacts",
+                        "recordId": "@outputs('Create_contact')?['body/contactid']",
+                        "$select": "contactid,fullname,vin_customernumber"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    }
+                  },
+                  "Set_created": {
+                    "runAfter": {
+                      "Get_contact": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "e980c342-f888-4230-b0bc-7e644aabb714"
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                      "name": "vStatus",
+                      "value": "Created"
+                    }
+                  },
+                  "Set_cid": {
+                    "runAfter": {
+                      "Set_created": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "470b26b8-e684-4c5f-b435-306fe150f4fa"
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                      "name": "vContactId",
+                      "value": "@{outputs('Get_contact')?['body/contactid']}"
+                    }
+                  },
+                  "Set_cno": {
+                    "runAfter": {
+                      "Set_cid": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "fca8f11a-899b-49d9-b6c8-ea22f32cec42"
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                      "name": "vCustNo",
+                      "value": "@{outputs('Get_contact')?['body/vin_customernumber']}"
+                    }
+                  },
+                  "Set_cname": {
+                    "runAfter": {
+                      "Set_cno": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "5a8d25f8-4e87-40aa-b781-e232f297675e"
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                      "name": "vFullName",
+                      "value": "@{outputs('Get_contact')?['body/fullname']}"
+                    }
+                  },
+                  "Welcome_email": {
+                    "runAfter": {
+                      "Set_cname": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "7902fa32-4314-4e34-b6b5-344ecbdc3dcd"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "connectionName": "shared_office365",
+                        "operationId": "SendEmailV2",
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                      },
+                      "parameters": {
+                        "emailMessage/To": "@{if(empty(parameters('CC Customer Email Override (vin_CCCustomerEmailOverride)')),triggerBody()?['text_2'],parameters('CC Customer Email Override (vin_CCCustomerEmailOverride)'))}",
+                        "emailMessage/Subject": "Welcome to Vink Customer Care, @{trim(triggerBody()?['text'])}",
+                        "emailMessage/Body": "<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e1e4e8;border-radius:8px;overflow:hidden\"><div style=\"background:#0b5cad;color:#ffffff;padding:16px 24px;font-size:18px;font-weight:600\">Vink Electronics Customer Care</div><div style=\"padding:20px 24px;color:#1f2328;font-size:14px;line-height:1.6\"><h2 style=\"font-size:17px;margin:0 0 12px 0\">Welcome, @{trim(triggerBody()?['text'])}</h2><p>Your customer account is ready. Your customer number is <b>@{variables('vCustNo')}</b>.</p><p>Use it, or any of your order numbers, to confirm who you are next time you chat with our assistant.</p><p style=\"margin-top:20px\">Vink Electronics Customer Care</p></div><div style=\"background:#f6f8fa;padding:12px 24px;color:#57606a;font-size:12px\">Vink Electronics is a fictional retailer used for a Power Platform demo. @{if(empty(parameters('CC Customer Email Override (vin_CCCustomerEmailOverride)')),'',concat('Demo note: this email was meant for ',toLower(trim(triggerBody()?['text_2'])),'.'))}</div></div>",
+                        "emailMessage/Importance": "Normal"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    }
+                  },
+                  "Email_handled": {
+                    "runAfter": {
+                      "Welcome_email": [
+                        "Succeeded",
+                        "Failed",
+                        "TimedOut",
+                        "Skipped"
+                      ]
+                    },
+                    "metadata": {
+                      "operationMetadataId": "2f8eb651-d561-4c66-b96f-52b0258d3926"
+                    },
+                    "type": "Compose",
+                    "inputs": "@{if(equals(actions('Welcome_email')?['status'],'Succeeded'),'sent','not sent')}"
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@length(outputs('Existing')?['body/value'])",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "50af42bd-3c25-4083-81df-6f41fe2872c0"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Init_vFullName": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "cfc9cc26-70e5-490d-8181-ad902735ca02"
+          },
+          "type": "Scope"
+        },
+        "Catch": {
+          "actions": {
+            "Set_vStatus_0": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "012f677f-9d0c-4225-b28b-e24ba8dfd91e"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vStatus",
+                "value": "Error"
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "04accb34-1ee9-4998-9db0-9169fec6e046"
+          },
+          "type": "Scope"
+        },
+        "Respond": {
+          "runAfter": {
+            "Catch": [
+              "Succeeded",
+              "Skipped"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "3170c515-ef2c-438f-89a5-87ac570bebea"
+          },
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "status": "@{variables('vStatus')}",
+              "contactid": "@{variables('vContactId')}",
+              "customernumber": "@{variables('vCustNo')}",
+              "fullname": "@{variables('vFullName')}"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "title": "status",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "contactid": {
+                  "title": "contactid",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "customernumber": {
+                  "title": "customernumber",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "fullname": {
+                  "title": "fullname",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,37 @@
+kind: TaskDialog
+modelDescription: "Returns a ticket's status and timeline for its owner. Used by topics only."
+outputs:
+  - propertyName: result
+
+  - propertyName: subject
+
+  - propertyName: status
+
+  - propertyName: priority
+
+  - propertyName: category
+
+  - propertyName: team
+
+  - propertyName: latest
+
+  - propertyName: raised
+
+  - propertyName: resolveby
+
+  - propertyName: overdue
+
+  - propertyName: timeline
+
+  - propertyName: canrate
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: 47822f8a-f6cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

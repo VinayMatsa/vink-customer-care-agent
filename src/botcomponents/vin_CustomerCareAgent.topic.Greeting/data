@@ -1,0 +1,26 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Greeting
+    includeInOnSelectIntent: false
+    triggerQueries:
+      - Good afternoon
+      - Good morning
+      - Hello
+      - Hey
+      - Hi
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_abmysR
+      activity:
+        text:
+          - Hi! I'm the Vink Electronics customer care assistant.
+        speak:
+          - Hello, <break strength="medium" /> how can I help?
+
+    - kind: BeginDialog
+      id: go_menu
+      dialog: vin_CustomerCareAgent.topic.MainMenu
