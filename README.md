@@ -49,6 +49,20 @@ flowchart LR
 | Automation | Status emails, VIP and urgent alerts, and a daily SLA report, with all addresses held in environment variables |
 | Responsible AI | Customer verification (email plus order or customer number), human escalation, and instructions never to ask for card numbers, passwords or one-time codes |
 
+## Repository layout
+
+| Path | What is in it |
+|---|---|
+| `CustomerCareAgent_1_0_0_1.zip` | The solution package to import into Power Apps |
+| `src/botcomponents/` | Agent instructions, topics, entities, the Billing child agent and the agent-flow tools |
+| `src/bots/` | The Copilot Studio agent definition |
+| `src/Workflows/` | Power Automate flow definitions (JSON) |
+| `src/environmentvariabledefinitions/` | Environment variables used by the flows |
+| `src/customizations.xml` | Dataverse tables, columns, forms, views and the model-driven app |
+| `screenshots/` | Screenshots used in this README |
+
+`src/` is the unpacked contents of the solution .zip, so the logic can be read on GitHub without importing it.
+
 ## How to install
 
 1. In Power Apps, go to **Solutions > Import solution**.
