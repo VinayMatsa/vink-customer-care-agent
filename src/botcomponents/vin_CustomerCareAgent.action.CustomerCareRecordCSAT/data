@@ -1,0 +1,15 @@
+kind: TaskDialog
+modelDescription: "Saves a 1-5 satisfaction rating on a resolved ticket. Used by the Rate a Ticket topic only."
+outputs:
+  - propertyName: result
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: 789119aa-f6cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

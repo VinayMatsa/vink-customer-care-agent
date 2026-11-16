@@ -1,0 +1,21 @@
+kind: TaskDialog
+modelDescription: "Registers a new customer. Used by the Identify Customer topic only."
+outputs:
+  - propertyName: status
+
+  - propertyName: contactid
+
+  - propertyName: customernumber
+
+  - propertyName: fullname
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: 82e5e122-f6cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

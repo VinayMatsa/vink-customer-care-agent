@@ -1,0 +1,14 @@
+<botcomponent_workflowset>
+  <botcomponent_workflow botcomponentid.schemaname="vin_CustomerCareAgent.action.CustomerCareRepairUpdate" workflowid.workflowid="14e06b14-21cd-f111-a05a-6045bd565bd6">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_workflow>
+  <botcomponent_workflow botcomponentid.schemaname="vin_CustomerCareAgent.action.CustomerCareRMAProcess" workflowid.workflowid="1346cd27-1acd-f111-a05a-6045bd565bd6">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_workflow>
+  <botcomponent_workflow botcomponentid.schemaname="vin_CustomerCareAgent.ExternalTriggerComponent.Warehousescanrece.e0747211-ed2f-4b44-88c2-cf6314b0e9e" workflowid.workflowid="3a5c0904-23cd-f111-a05a-6045bd565bd6">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_workflow>
+  <botcomponent_workflow botcomponentid.schemaname="vin_CustomerCareAgent.topic.WarrantyClaim" workflowid.workflowid="1346cd27-1acd-f111-a05a-6045bd565bd6">
+    <iscustomizable>1</iscustomizable>
+  </botcomponent_workflow>
+</botcomponent_workflowset>

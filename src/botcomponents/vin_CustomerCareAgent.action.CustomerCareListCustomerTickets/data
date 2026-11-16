@@ -1,0 +1,19 @@
+kind: TaskDialog
+modelDescription: "Lists the verified customer's tickets. Used by topics only."
+outputs:
+  - propertyName: ticketcount
+
+  - propertyName: ticketchoices
+
+  - propertyName: ticketlist
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: c4cf3f49-f6cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

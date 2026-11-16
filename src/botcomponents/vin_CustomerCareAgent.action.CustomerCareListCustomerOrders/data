@@ -1,0 +1,19 @@
+kind: TaskDialog
+modelDescription: "Lists the verified customer's orders. Used by topics only."
+outputs:
+  - propertyName: ordercount
+
+  - propertyName: orderchoices
+
+  - propertyName: orderlist
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: b3cf3f49-f6cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

@@ -1,0 +1,12 @@
+<botcomponent schemaname="vin_CustomerCareAgent.file.Vink_Electronics_Warranty_and_Returns_Policy.pdf_bUT">
+  <componenttype>14</componenttype>
+  <description>This knowledge source searches information contained in Vink_Electronics_Warranty_and_Returns_Policy.pdf</description>
+  <filedata mimetype="application/pdf">Vink_Electronics_Warranty_and_Returns_Policy.pdf</filedata>
+  <iscustomizable>0</iscustomizable>
+  <name>Vink_Electronics_Warranty_and_Returns_Policy.pdf</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

@@ -1,0 +1,387 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccOutlook"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "CC Support Mailbox (vin_CCSupportMailbox)": {
+          "defaultValue": "support@example.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "vin_CCSupportMailbox",
+            "description": "Mailbox that receives escalations, new urgent tickets and the daily SLA report"
+          }
+        },
+        "CC Customer Email Override (vin_CCCustomerEmailOverride)": {
+          "defaultValue": "support@example.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "vin_CCCustomerEmailOverride",
+            "description": "Demo safety: when set, every customer email is sent here instead of the customer address. Clear it in production."
+          }
+        }
+      },
+      "triggers": {
+        "When_a_ticket_row_changes": {
+          "metadata": {
+            "operationMetadataId": "f0fbca3f-f29d-4d2f-8a2a-d1acb012c841"
+          },
+          "type": "OpenApiConnectionWebhook",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "SubscribeWebhookTrigger",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "subscriptionRequest/message": 3,
+              "subscriptionRequest/entityname": "vin_ccserviceticket",
+              "subscriptionRequest/scope": 4,
+              "subscriptionRequest/filteringattributes": "vin_ticketstatus"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Try": {
+          "actions": {
+            "Get_ticket": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "9f57b46d-8ced-4347-960b-6900e2490277"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "GetItem",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "recordId": "@{triggerOutputs()?['body/vin_ccserviceticketid']}",
+                  "$expand": "vin_SupportTeam($select=vin_name),vin_Customer($select=fullname,firstname,emailaddress1)"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Explanations": {
+              "runAfter": {
+                "Status_label": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "67d32c83-d662-4321-9a9e-311432a3a8aa"
+              },
+              "type": "Compose",
+              "inputs": {
+                "Open": "We have received your request.",
+                "Awaiting return": "Please send the product back using the return label we emailed you.",
+                "Scanned at warehouse": "Your product has arrived at our warehouse and is with a technician.",
+                "Repaired": "Your product has been repaired and is on its way back to you.",
+                "Replaced": "We are sending you a replacement product.",
+                "In progress": "Our team is working on your request.",
+                "Awaiting customer": "We need a reply from you to continue. Tell our assistant your ticket number and your answer.",
+                "Escalated": "A senior member of the team now owns your ticket and will contact you within one business day.",
+                "Resolved": "Your request is resolved. If something is still wrong, reply within 7 days and we will reopen it.",
+                "Closed": "This ticket is now closed."
+              }
+            },
+            "Explanation": {
+              "runAfter": {
+                "Explanations": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "8a82db50-4bbe-4e48-9051-01c736afab40"
+              },
+              "type": "Compose",
+              "inputs": "@coalesce(outputs('Explanations')?[outputs('Status_label')],'Your ticket has been updated.')"
+            },
+            "Log_status": {
+              "runAfter": {
+                "Explanation": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "065c64ad-c8b1-42d9-b92a-4c5b41f1510b"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "CreateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccticketupdates",
+                  "item/vin_statusafter": "@{outputs('Status_label')}",
+                  "item/vin_Ticket@odata.bind": "/vin_ccservicetickets(@{triggerOutputs()?['body/vin_ccserviceticketid']})",
+                  "item/vin_updatetext": "@{coalesce(outputs('Get_ticket')?['body/vin_latestupdate'],outputs('Explanation'))}",
+                  "item/vin_name": "Status: @{outputs('Status_label')}",
+                  "item/vin_updatedby": "@{concat(coalesce(outputs('Get_ticket')?['body/vin_SupportTeam']?['vin_name'],'Customer care'),' team')}",
+                  "item/vin_updatedon": "@{utcNow()}",
+                  "item/vin_visibletocustomer": true
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Stamp_ticket": {
+              "runAfter": {
+                "Log_status": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "8646d961-e082-4378-8cbe-9ae75be81575"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "UpdateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "recordId": "@{triggerOutputs()?['body/vin_ccserviceticketid']}",
+                  "item/vin_customernotified": true
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Email_customer": {
+              "actions": {
+                "Send_update": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "f50cefa1-7bd8-4d8a-99b8-fe3ca17d42cc"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_office365",
+                      "operationId": "SendEmailV2",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                    },
+                    "parameters": {
+                      "emailMessage/To": "@{if(empty(parameters('CC Customer Email Override (vin_CCCustomerEmailOverride)')),coalesce(outputs('Get_ticket')?['body/vin_customeremail'],outputs('Get_ticket')?['body/vin_Customer']?['emailaddress1']),parameters('CC Customer Email Override (vin_CCCustomerEmailOverride)'))}",
+                      "emailMessage/Subject": "Update on your ticket @{outputs('Get_ticket')?['body/vin_ticketnumber']}: @{outputs('Status_label')}",
+                      "emailMessage/Body": "<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e1e4e8;border-radius:8px;overflow:hidden\"><div style=\"background:#0b5cad;color:#ffffff;padding:16px 24px;font-size:18px;font-weight:600\">Vink Electronics Customer Care</div><div style=\"padding:20px 24px;color:#1f2328;font-size:14px;line-height:1.6\"><h2 style=\"font-size:17px;margin:0 0 12px 0\">@{outputs('Get_ticket')?['body/vin_ticketnumber']} is now: @{outputs('Status_label')}</h2><p>Hello @{coalesce(outputs('Get_ticket')?['body/vin_Customer']?['firstname'],'there')},</p><p>@{outputs('Explanation')}</p>@{if(or(empty(outputs('Get_ticket')?['body/vin_latestupdate']),equals(outputs('Get_ticket')?['body/vin_latestupdate'],outputs('Explanation'))),'',concat('<p style=\"background:#f6f8fa;border-left:3px solid #0b5cad;padding:8px 12px\"><b>Latest update:</b> ',outputs('Get_ticket')?['body/vin_latestupdate'],'</p>'))}<table style=\"border-collapse:collapse;font-size:14px\"><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Ticket</td><td style=\"padding:4px 0\"><b>@{outputs('Get_ticket')?['body/vin_ticketnumber']}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Subject</td><td style=\"padding:4px 0\"><b>@{outputs('Get_ticket')?['body/vin_subject']}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#57606a\">Team</td><td style=\"padding:4px 0\"><b>@{outputs('Get_ticket')?['body/vin_SupportTeam']?['vin_name']}</b></td></tr></table>@{if(equals(outputs('Status_label'),'Resolved'),concat('<p><b>How did we do?</b> Tell our assistant <i>Rate ',outputs('Get_ticket')?['body/vin_ticketnumber'],'</i> and give us a score from 1 to 5.</p>'),'')}<p style=\"margin-top:20px\">Vink Electronics Customer Care</p></div><div style=\"background:#f6f8fa;padding:12px 24px;color:#57606a;font-size:12px\">Vink Electronics is a fictional retailer used for a Power Platform demo. @{if(empty(parameters('CC Customer Email Override (vin_CCCustomerEmailOverride)')),'',concat('Demo note: this email was meant for ',coalesce(outputs('Get_ticket')?['body/vin_customeremail'],outputs('Get_ticket')?['body/vin_Customer']?['emailaddress1']),'.'))}</div></div>",
+                      "emailMessage/Importance": "Normal"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Email_handled": {
+                  "runAfter": {
+                    "Send_update": [
+                      "Succeeded",
+                      "Failed",
+                      "TimedOut",
+                      "Skipped"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "815276df-a378-4e9d-9d6b-9c4446eef09e"
+                  },
+                  "type": "Compose",
+                  "inputs": "handled"
+                }
+              },
+              "runAfter": {
+                "If_resolved": [
+                  "Succeeded"
+                ]
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@empty(coalesce(outputs('Get_ticket')?['body/vin_customeremail'],outputs('Get_ticket')?['body/vin_Customer']?['emailaddress1']))",
+                      false
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "a84905dc-86cf-4876-a2d6-958d863d0bc8"
+              },
+              "type": "If"
+            },
+            "If_resolved": {
+              "actions": {
+                "Set_resolved_on": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "3b598ac9-3999-4672-a58d-af2b24c063b8"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "UpdateRecord",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccservicetickets",
+                      "recordId": "@{triggerOutputs()?['body/vin_ccserviceticketid']}",
+                      "item/vin_resolvedon": "@{utcNow()}"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Stamp_ticket": [
+                  "Succeeded"
+                ]
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@outputs('Status_label')",
+                      "Resolved"
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "c3fc515c-0a71-4c90-b6ed-a2f9dfb8f5ac"
+              },
+              "type": "If"
+            },
+            "Status_map": {
+              "runAfter": {
+                "Get_ticket": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "8675de6e-e409-435c-9791-9d4b8d91118c"
+              },
+              "type": "Compose",
+              "inputs": {
+                "949870000": "Open",
+                "949870001": "Awaiting return",
+                "949870002": "Scanned at warehouse",
+                "949870003": "Repaired",
+                "949870004": "Replaced",
+                "949870005": "Closed",
+                "949870006": "In progress",
+                "949870007": "Awaiting customer",
+                "949870008": "Escalated",
+                "949870009": "Resolved"
+              }
+            },
+            "Status_label": {
+              "runAfter": {
+                "Status_map": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "0cbbafe7-6afc-4f03-b87f-12e1bc06956d"
+              },
+              "type": "Compose",
+              "inputs": "@coalesce(outputs('Status_map')?[string(triggerOutputs()?['body/vin_ticketstatus'])],'Updated')"
+            }
+          },
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "af4cf1e9-2af7-4096-a36d-56799c5b2228"
+          },
+          "type": "Scope"
+        },
+        "Catch": {
+          "actions": {
+            "Alert_failure": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "415cc027-c99f-4a24-abcc-9721cbdf752f"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_office365",
+                  "operationId": "SendEmailV2",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365"
+                },
+                "parameters": {
+                  "emailMessage/To": "@{parameters('CC Support Mailbox (vin_CCSupportMailbox)')}",
+                  "emailMessage/Subject": "Flow failed: Customer Care – Ticket Status Changed",
+                  "emailMessage/Body": "<div style=\"font-family:Segoe UI,Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e1e4e8;border-radius:8px;overflow:hidden\"><div style=\"background:#0b5cad;color:#ffffff;padding:16px 24px;font-size:18px;font-weight:600\">Vink Electronics Customer Care</div><div style=\"padding:20px 24px;color:#1f2328;font-size:14px;line-height:1.6\"><h2 style=\"font-size:17px;margin:0 0 12px 0\">Customer Care – Ticket Status Changed failed</h2><p>The flow failed. Open the run to see which step failed:</p><p><a href=\"@{concat('https://make.powerautomate.com/environments/',workflow()?['tags']?['environmentName'],'/flows/',workflow()?['name'],'/runs/',workflow()?['run']?['name'])}\">@{concat('https://make.powerautomate.com/environments/',workflow()?['tags']?['environmentName'],'/flows/',workflow()?['name'],'/runs/',workflow()?['run']?['name'])}</a></p><p style=\"margin-top:20px\">Vink Electronics Customer Care</p></div><div style=\"background:#f6f8fa;padding:12px 24px;color:#57606a;font-size:12px\">Vink Electronics is a fictional retailer used for a Power Platform demo.</div></div>",
+                  "emailMessage/Importance": "Normal"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Mark_failed": {
+              "runAfter": {
+                "Alert_failure": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "60705606-c50c-4c8f-b919-4062ca6a31dd"
+              },
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Failed",
+                "runError": {
+                  "code": "CaughtFailure",
+                  "message": "See the failure email for the run link."
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "cbf32ed5-ccdc-404e-81ec-1ab2dfcb0327"
+          },
+          "type": "Scope"
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

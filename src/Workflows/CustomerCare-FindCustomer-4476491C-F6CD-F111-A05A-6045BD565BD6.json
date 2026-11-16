@@ -1,0 +1,533 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "impersonation": {},
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "CC Support Mailbox (vin_CCSupportMailbox)": {
+          "defaultValue": "support@example.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "vin_CCSupportMailbox",
+            "description": "Support mailbox"
+          }
+        },
+        "CC Customer Email Override (vin_CCCustomerEmailOverride)": {
+          "defaultValue": "support@example.com",
+          "type": "String",
+          "metadata": {
+            "schemaName": "vin_CCCustomerEmailOverride",
+            "description": "Demo override for customer emails"
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "Email",
+                  "description": "Customer email address",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_1": {
+                  "title": "OrderOrCustomerNumber",
+                  "description": "Order number (ORD-…) or customer number (CUST-…) used to verify the customer; can be empty",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_vStatus": {
+          "runAfter": {},
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vStatus",
+                "type": "string",
+                "value": "NotFound"
+              }
+            ]
+          }
+        },
+        "Init_vContactId": {
+          "runAfter": {
+            "Init_vStatus": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vContactId",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vFirstName": {
+          "runAfter": {
+            "Init_vContactId": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vFirstName",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vFullName": {
+          "runAfter": {
+            "Init_vFirstName": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vFullName",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vCustNo": {
+          "runAfter": {
+            "Init_vFullName": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vCustNo",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vVIP": {
+          "runAfter": {
+            "Init_vCustNo": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vVIP",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vOpenCount": {
+          "runAfter": {
+            "Init_vVIP": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vOpenCount",
+                "type": "string",
+                "value": "0"
+              }
+            ]
+          }
+        },
+        "Init_vOpenSummary": {
+          "runAfter": {
+            "Init_vOpenCount": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vOpenSummary",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Try": {
+          "actions": {
+            "Find_contact": {
+              "runAfter": {},
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords"
+                },
+                "parameters": {
+                  "entityName": "contacts",
+                  "$select": "contactid,firstname,fullname,vin_customernumber,vin_isvip",
+                  "$filter": "emailaddress1 eq '@{toLower(trim(triggerBody()?['text']))}'",
+                  "$top": 1
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Found": {
+              "actions": {
+                "Contact": {
+                  "runAfter": {},
+                  "type": "Compose",
+                  "inputs": "@first(outputs('Find_contact')?['body/value'])"
+                },
+                "Ref": {
+                  "runAfter": {
+                    "Contact": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@toUpper(trim(coalesce(triggerBody()?['text_1'],'')))"
+                },
+                "Find_order": {
+                  "runAfter": {
+                    "Ref": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "ListRecords"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccorders",
+                      "$select": "vin_ordernumber",
+                      "$filter": "vin_ordernumber eq '@{outputs('Ref')}' and _vin_customercontact_value eq @{outputs('Contact')?['contactid']}",
+                      "$top": 1
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Set_status": {
+                  "runAfter": {
+                    "Find_order": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vStatus",
+                    "value": "@if(empty(outputs('Ref')),'NeedVerification',if(or(greater(length(outputs('Find_order')?['body/value']),0),equals(outputs('Ref'),toUpper(coalesce(outputs('Contact')?['vin_customernumber'],'-')))),'Verified','NotVerified'))"
+                  }
+                },
+                "Set_id": {
+                  "runAfter": {
+                    "Set_status": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vContactId",
+                    "value": "@{outputs('Contact')?['contactid']}"
+                  }
+                },
+                "Set_first": {
+                  "runAfter": {
+                    "Set_id": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vFirstName",
+                    "value": "@{outputs('Contact')?['firstname']}"
+                  }
+                },
+                "Set_full": {
+                  "runAfter": {
+                    "Set_first": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vFullName",
+                    "value": "@{outputs('Contact')?['fullname']}"
+                  }
+                },
+                "Set_no": {
+                  "runAfter": {
+                    "Set_full": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vCustNo",
+                    "value": "@{outputs('Contact')?['vin_customernumber']}"
+                  }
+                },
+                "Set_vip": {
+                  "runAfter": {
+                    "Set_no": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vVIP",
+                    "value": "@{if(equals(outputs('Contact')?['vin_isvip'],true),'Yes','No')}"
+                  }
+                },
+                "Open_tickets": {
+                  "runAfter": {
+                    "Set_vip": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps",
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "ListRecords"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccservicetickets",
+                      "$select": "vin_ticketnumber,vin_subject,vin_ticketstatus",
+                      "$filter": "_vin_customer_value eq @{outputs('Contact')?['contactid']} and vin_ticketstatus ne 949870005 and vin_ticketstatus ne 949870009",
+                      "$orderby": "modifiedon desc"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Lines": {
+                  "runAfter": {
+                    "Open_tickets": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@outputs('Open_tickets')?['body/value']",
+                    "select": "@concat('- ',item()?['vin_ticketnumber'],': ',item()?['vin_subject'],' (',item()?['vin_ticketstatus@OData.Community.Display.V1.FormattedValue'],')')"
+                  }
+                },
+                "Set_count": {
+                  "runAfter": {
+                    "Lines": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vOpenCount",
+                    "value": "@{length(outputs('Open_tickets')?['body/value'])}"
+                  }
+                },
+                "Set_summary": {
+                  "runAfter": {
+                    "Set_count": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vOpenSummary",
+                    "value": "@{join(body('Lines'),decodeUriComponent('%0A'))}"
+                  }
+                }
+              },
+              "runAfter": {
+                "Find_contact": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {}
+              },
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@length(outputs('Find_contact')?['body/value'])",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Init_vOpenSummary": [
+              "Succeeded"
+            ]
+          },
+          "type": "Scope"
+        },
+        "Catch": {
+          "actions": {
+            "Set_vStatus_0": {
+              "runAfter": {},
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vStatus",
+                "value": "Error"
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "type": "Scope"
+        },
+        "Respond": {
+          "runAfter": {
+            "Catch": [
+              "Succeeded",
+              "Skipped"
+            ]
+          },
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "title": "status",
+                  "description": "",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "contactid": {
+                  "title": "contactid",
+                  "description": "",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "firstname": {
+                  "title": "firstname",
+                  "description": "",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "fullname": {
+                  "title": "fullname",
+                  "description": "",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "customernumber": {
+                  "title": "customernumber",
+                  "description": "",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "isvip": {
+                  "title": "isvip",
+                  "description": "",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "openticketcount": {
+                  "title": "openticketcount",
+                  "description": "",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "openticketsummary": {
+                  "title": "openticketsummary",
+                  "description": "",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "additionalProperties": {}
+            },
+            "body": {
+              "status": "@{variables('vStatus')}",
+              "contactid": "@{variables('vContactId')}",
+              "firstname": "@{variables('vFirstName')}",
+              "fullname": "@{variables('vFullName')}",
+              "customernumber": "@{variables('vCustNo')}",
+              "isvip": "@{variables('vVIP')}",
+              "openticketcount": "@{variables('vOpenCount')}",
+              "openticketsummary": "@{variables('vOpenSummary')}"
+            }
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,12 @@
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnConversationStart
+  id: main
+  actions:
+    - kind: SendActivity
+      id: sendMessage_M0LuhV
+      activity:
+        text:
+          - "Hi, I'm the Vink Electronics Customer Care assistant. I can raise and track support tickets, track your orders, handle warranty claims, or connect you with a person. Say hello to see the menu, or just tell me what's wrong."
+        speak:
+          - Hello and thank you for calling {System.Bot.Name}, powered by generative AI. How may I help you today?

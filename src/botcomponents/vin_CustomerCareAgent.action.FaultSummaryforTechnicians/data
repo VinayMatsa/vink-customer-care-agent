@@ -1,0 +1,14 @@
+kind: TaskDialog
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: CustomerDescription
+    name: CustomerDescription
+    shouldPromptUser: true
+
+modelDisplayName: Fault Summary for Technicians
+modelDescription: Turns a customer's free-text description of a product fault into a clean four-line fault summary (symptom, when it happens, already tried, safety flag) for repair technicians. Use it before submitting a warranty claim.
+action:
+  kind: InvokeAIBuilderModelTaskAction
+  aIModelId: ab7147d6-66a1-4254-a6dc-31912e8af436
+
+outputMode: All

@@ -1,0 +1,17 @@
+kind: TaskDialog
+modelDescription: "Escalates the customer's ticket to a person and alerts the support mailbox. Used by the Escalate topic only."
+outputs:
+  - propertyName: result
+
+  - propertyName: team
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: 2bd520a4-f6cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

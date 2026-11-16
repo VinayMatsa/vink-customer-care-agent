@@ -1,0 +1,29 @@
+kind: TaskDialog
+modelDescription: "Creates a support ticket for the verified customer. Used by topics only."
+outputs:
+  - propertyName: result
+
+  - propertyName: duplicate
+
+  - propertyName: ticketnumber
+
+  - propertyName: status
+
+  - propertyName: respondby
+
+  - propertyName: resolveby
+
+  - propertyName: team
+
+  - propertyName: priority
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: 3b356e61-f6cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Invoker
+
+outputMode: All
+triggerCondition: false

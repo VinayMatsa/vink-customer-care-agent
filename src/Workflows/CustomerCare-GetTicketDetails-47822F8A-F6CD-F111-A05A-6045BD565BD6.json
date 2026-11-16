@@ -1,0 +1,723 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "68e889d2-4b10-4f59-9737-ef84e19afdd6"
+          },
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "TicketNumber",
+                  "description": "TicketNumber",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_1": {
+                  "title": "ContactId",
+                  "description": "ContactId",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text",
+                "text_1"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_vResult": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "68753dbb-a780-43da-b0d6-e8a47cc10f11"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vResult",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vSubject": {
+          "runAfter": {
+            "Init_vResult": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "49baadb4-bb88-4a42-9ecf-419e3a82b9bd"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vSubject",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vStatus": {
+          "runAfter": {
+            "Init_vSubject": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "5c08df41-9f9d-4013-b582-a09936e366e8"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vStatus",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vPriority": {
+          "runAfter": {
+            "Init_vStatus": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "74c207c9-9711-48d6-8744-5b811a020dba"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vPriority",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vCategory": {
+          "runAfter": {
+            "Init_vPriority": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "19123df7-aa2a-4cbe-80fb-489993bc3f5a"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vCategory",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vTeam": {
+          "runAfter": {
+            "Init_vCategory": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "37dca243-5129-4fd1-a497-ad5fd77c507e"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vTeam",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vLatest": {
+          "runAfter": {
+            "Init_vTeam": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "5c041cf7-55f3-47af-9c1f-586e83966713"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vLatest",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vRaised": {
+          "runAfter": {
+            "Init_vLatest": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "7cd2bce2-8b91-415c-977c-c0bd096baa6c"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vRaised",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vResolveBy": {
+          "runAfter": {
+            "Init_vRaised": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "c9d88426-3519-42fa-a006-4a1396bb45ca"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vResolveBy",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vOverdue": {
+          "runAfter": {
+            "Init_vResolveBy": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "1b8661b9-6e40-4b3d-97cd-b52bea87878a"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vOverdue",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vTimeline": {
+          "runAfter": {
+            "Init_vOverdue": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "28cc7a34-928e-465c-b754-c942b767cf2a"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vTimeline",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Init_vCanRate": {
+          "runAfter": {
+            "Init_vTimeline": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "576aa60b-6b44-4e2b-bdf0-fc6bc6f3563f"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vCanRate",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Try": {
+          "actions": {
+            "Find_ticket": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "52e79e75-6375-43e2-b04d-bff358433aa1"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "ListRecords",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "$filter": "vin_ticketnumber eq '@{toUpper(trim(triggerBody()?['text']))}'",
+                  "$top": 1,
+                  "$expand": "vin_SupportTeam($select=vin_name),vin_Customer($select=fullname,emailaddress1)"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "T": {
+              "runAfter": {
+                "Find_ticket": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "a5510ebf-a0e1-4c02-ac63-d93ef8b2921d"
+              },
+              "type": "Compose",
+              "inputs": "@first(outputs('Find_ticket')?['body/value'])"
+            },
+            "Check": {
+              "actions": {
+                "Updates": {
+                  "runAfter": {},
+                  "metadata": {
+                    "operationMetadataId": "dc065975-4ca3-4ca3-840f-0ff76e2c51b7"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "connectionName": "shared_commondataserviceforapps",
+                      "operationId": "ListRecords",
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                    },
+                    "parameters": {
+                      "entityName": "vin_ccticketupdates",
+                      "$select": "vin_name,vin_updatetext,vin_updatedon",
+                      "$filter": "_vin_ticket_value eq @{outputs('T')?['vin_ccserviceticketid']} and vin_visibletocustomer eq true",
+                      "$orderby": "vin_updatedon asc"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Lines": {
+                  "runAfter": {
+                    "Updates": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "ad096ea0-8ad3-44b0-9e4a-0144858b7e75"
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@outputs('Updates')?['body/value']",
+                    "select": "@concat('- ',formatDateTime(coalesce(item()?['vin_updatedon'],utcNow()),'dd MMM, HH:mm'),' UTC: **',item()?['vin_name'],'**. ',item()?['vin_updatetext'])"
+                  }
+                },
+                "Set_r": {
+                  "runAfter": {
+                    "Lines": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "e6aaa6d2-8385-43dc-9c8f-5314d5df6a29"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vResult",
+                    "value": "Found"
+                  }
+                },
+                "Set_s": {
+                  "runAfter": {
+                    "Set_r": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "3bd2302d-182c-453c-b735-694b41768909"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vSubject",
+                    "value": "@{outputs('T')?['vin_subject']}"
+                  }
+                },
+                "Set_st": {
+                  "runAfter": {
+                    "Set_s": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "57fc0d1f-eacc-47f4-9b70-e447829380bf"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vStatus",
+                    "value": "@{outputs('T')?['vin_ticketstatus@OData.Community.Display.V1.FormattedValue']}"
+                  }
+                },
+                "Set_p": {
+                  "runAfter": {
+                    "Set_st": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "5c623fbb-07ff-4434-81b1-746ef6ae59df"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vPriority",
+                    "value": "@{outputs('T')?['vin_priority@OData.Community.Display.V1.FormattedValue']}"
+                  }
+                },
+                "Set_c": {
+                  "runAfter": {
+                    "Set_p": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "3d28a687-be59-4748-bd47-b3e299748809"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vCategory",
+                    "value": "@{outputs('T')?['vin_category@OData.Community.Display.V1.FormattedValue']}"
+                  }
+                },
+                "Set_t": {
+                  "runAfter": {
+                    "Set_c": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "e5d31166-f753-4f73-a77a-588e26a80a14"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vTeam",
+                    "value": "@{outputs('T')?['vin_SupportTeam']?['vin_name']}"
+                  }
+                },
+                "Set_l": {
+                  "runAfter": {
+                    "Set_t": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "9448e43f-6dc3-4993-8e9c-375ecc91c0f3"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vLatest",
+                    "value": "@{outputs('T')?['vin_latestupdate']}"
+                  }
+                },
+                "Set_raised": {
+                  "runAfter": {
+                    "Set_l": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "f5e191fc-575a-4f91-bdb0-1e23ab871fff"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vRaised",
+                    "value": "@{formatDateTime(outputs('T')?['createdon'],'dd MMM yyyy')}"
+                  }
+                },
+                "Set_rb": {
+                  "runAfter": {
+                    "Set_raised": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "0dbc486f-e7cb-42e0-9b23-3d2b2a1dec99"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vResolveBy",
+                    "value": "@{if(empty(outputs('T')?['vin_resolveby']),'',concat(formatDateTime(outputs('T')?['vin_resolveby'],'dd MMM yyyy, HH:mm'),' UTC'))}"
+                  }
+                },
+                "Set_o": {
+                  "runAfter": {
+                    "Set_rb": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "6aa727af-be0b-4a2f-a765-1739739529f5"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vOverdue",
+                    "value": "@{if(equals(outputs('T')?['vin_isoverdue'],true),'Yes','No')}"
+                  }
+                },
+                "Set_tl": {
+                  "runAfter": {
+                    "Set_o": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "0edb8839-7b47-4d83-9d51-85e919539fe5"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vTimeline",
+                    "value": "@{join(body('Lines'),decodeUriComponent('%0A'))}"
+                  }
+                },
+                "Set_rate": {
+                  "runAfter": {
+                    "Set_tl": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "operationMetadataId": "4cdcc41d-e6f9-42e3-95f6-15363fc20919"
+                  },
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "vCanRate",
+                    "value": "@{if(and(contains(createArray('Resolved','Closed'),outputs('T')?['vin_ticketstatus@OData.Community.Display.V1.FormattedValue']),empty(outputs('T')?['vin_csatscore'])),'Yes','No')}"
+                  }
+                }
+              },
+              "runAfter": {
+                "T": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {
+                  "Set_nf": {
+                    "runAfter": {},
+                    "metadata": {
+                      "operationMetadataId": "4811ed57-8476-4fa9-831a-d2c2d149ab95"
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                      "name": "vResult",
+                      "value": "@{if(empty(outputs('T')),'NotFound','NotYours')}"
+                    }
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@and(not(empty(outputs('T'))),equals(toLower(coalesce(outputs('T')?['_vin_customer_value'],'')),toLower(trim(triggerBody()?['text_1']))))",
+                      true
+                    ]
+                  }
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "ae395d34-e8ff-499c-bff1-766a3c5af112"
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Init_vCanRate": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "963ca595-9337-4c75-9e94-9c796d180375"
+          },
+          "type": "Scope"
+        },
+        "Catch": {
+          "actions": {
+            "Set_vResult_0": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "329a5162-06bb-40f8-8633-9c0fc2a3d368"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vResult",
+                "value": "Error"
+              }
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "e76d8481-5f1e-4866-a76b-5a741d6e6d48"
+          },
+          "type": "Scope"
+        },
+        "Respond": {
+          "runAfter": {
+            "Catch": [
+              "Succeeded",
+              "Skipped"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "2d9df7f2-633f-4985-8394-8beee69ff76a"
+          },
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "result": "@{variables('vResult')}",
+              "subject": "@{variables('vSubject')}",
+              "status": "@{variables('vStatus')}",
+              "priority": "@{variables('vPriority')}",
+              "category": "@{variables('vCategory')}",
+              "team": "@{variables('vTeam')}",
+              "latest": "@{variables('vLatest')}",
+              "raised": "@{variables('vRaised')}",
+              "resolveby": "@{variables('vResolveBy')}",
+              "overdue": "@{variables('vOverdue')}",
+              "timeline": "@{variables('vTimeline')}",
+              "canrate": "@{variables('vCanRate')}"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "title": "result",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "subject": {
+                  "title": "subject",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "status": {
+                  "title": "status",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "priority": {
+                  "title": "priority",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "category": {
+                  "title": "category",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "team": {
+                  "title": "team",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "latest": {
+                  "title": "latest",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "raised": {
+                  "title": "raised",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "resolveby": {
+                  "title": "resolveby",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "overdue": {
+                  "title": "overdue",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "timeline": {
+                  "title": "timeline",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                },
+                "canrate": {
+                  "title": "canrate",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

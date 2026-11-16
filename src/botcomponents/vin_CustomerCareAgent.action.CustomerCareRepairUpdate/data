@@ -1,0 +1,22 @@
+kind: TaskDialog
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: text
+    name: TicketNumber
+    description: The service ticket number of the scanned return, for example TKT-1008. Take it from the vin_ticketnumber field of the trigger content.
+    shouldPromptUser: true
+
+modelDisplayName: Customer Care – Repair Update
+modelDescription: Use when a returned product has been scanned at the warehouse (the Warehouse scan received trigger). Takes the service ticket number, records the repair result and sets the ticket to Repaired or Replaced. The customer is emailed automatically by the Ticket Status Changed flow.
+outputs:
+  - propertyName: outcome
+
+action:
+  kind: InvokeFlowTaskAction
+  flowId: 14e06b14-21cd-f111-a05a-6045bd565bd6
+  connectionProperties:
+    $kind: ConnectionProperties
+    diagnostics:
+    mode: Maker
+
+outputMode: All

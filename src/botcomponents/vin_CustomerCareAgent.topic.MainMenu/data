@@ -1,0 +1,90 @@
+kind: AdaptiveDialog
+modelDescription: Shows the main customer care menu after verifying the customer. Use when the customer says hello, asks what you can do, asks for help without details, or asks for the menu.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Main Menu
+    triggerQueries:
+      - Show me the menu
+      - What can you do
+      - I need help
+      - Customer service
+      - Main menu
+
+  actions:
+    - kind: BeginDialog
+      id: begin_identify
+      dialog: vin_CustomerCareAgent.topic.IdentifyCustomer
+
+    - kind: ConditionGroup
+      id: cond_not_verified
+      conditions:
+        - id: cond_not_verified_yes
+          condition: =Global.CustomerVerified <> true
+          actions:
+            - kind: EndDialog
+              id: end_not_verified
+
+    - kind: AdaptiveCardPrompt
+      id: card_menu
+      card: |-
+        ={
+          type: "AdaptiveCard",
+          version: "1.5",
+          body: [
+            { type: "TextBlock", text: "What would you like to do, " & Text(Global.CustomerFirstName) & "?", weight: "Bolder", size: "Medium", wrap: true }
+          ],
+          actions: [
+            { type: "Action.Submit", title: "Raise a new ticket", data: { action: "new" } },
+            { type: "Action.Submit", title: "Check my tickets", data: { action: "status" } },
+            { type: "Action.Submit", title: "Track an order", data: { action: "track" } },
+            { type: "Action.Submit", title: "Warranty claim", data: { action: "warranty" } },
+            { type: "Action.Submit", title: "Talk to a person", data: { action: "person" } }
+          ]
+        }
+      output:
+        binding:
+          action: Topic.MenuChoice
+
+      outputType:
+        properties:
+          action: String
+
+    - kind: ConditionGroup
+      id: cond_menu
+      conditions:
+        - id: cond_menu_new
+          condition: =Topic.MenuChoice = "new"
+          actions:
+            - kind: BeginDialog
+              id: go_new
+              dialog: vin_CustomerCareAgent.topic.NewTicket
+
+        - id: cond_menu_status
+          condition: =Topic.MenuChoice = "status"
+          actions:
+            - kind: BeginDialog
+              id: go_status
+              dialog: vin_CustomerCareAgent.topic.CheckTicketStatus
+
+        - id: cond_menu_track
+          condition: =Topic.MenuChoice = "track"
+          actions:
+            - kind: BeginDialog
+              id: go_track
+              dialog: vin_CustomerCareAgent.topic.TrackOrder
+
+        - id: cond_menu_warranty
+          condition: =Topic.MenuChoice = "warranty"
+          actions:
+            - kind: BeginDialog
+              id: go_warranty
+              dialog: vin_CustomerCareAgent.topic.WarrantyClaim
+
+        - id: cond_menu_person
+          condition: =Topic.MenuChoice = "person"
+          actions:
+            - kind: BeginDialog
+              id: go_person
+              dialog: vin_CustomerCareAgent.topic.Escalate

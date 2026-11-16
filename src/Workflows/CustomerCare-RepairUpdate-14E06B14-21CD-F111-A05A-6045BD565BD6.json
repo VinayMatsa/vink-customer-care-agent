@@ -1,0 +1,229 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_commondataserviceforapps": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "vin_ccDataverse"
+        },
+        "api": {
+          "name": "shared_commondataserviceforapps"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "2726e5cb-1efa-4f70-9a6c-fd37483238fa"
+          },
+          "type": "Request",
+          "kind": "Skills",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "description": "Service ticket number, for example TKT-1008",
+                  "title": "TicketNumber",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Init_Outcome": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "20cda7ec-58f3-4bff-939d-b08d80890c46"
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "vOutcome",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "Find_ticket": {
+          "runAfter": {
+            "Init_Outcome": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "e23ee57c-5115-4750-abe3-46983be2d3ac"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "host": {
+              "connectionName": "shared_commondataserviceforapps",
+              "operationId": "ListRecords",
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+            },
+            "parameters": {
+              "entityName": "vin_ccservicetickets",
+              "$filter": "vin_ticketnumber eq '@{trim(triggerBody()?['text'])}'",
+              "$top": 1,
+              "$expand": "vin_WarrantyClaim($select=vin_claimnumber,vin_rmanumber,vin_serialnumber,vin_faultsummary)"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Ticket_found": {
+          "actions": {
+            "Result_text": {
+              "runAfter": {},
+              "metadata": {
+                "operationMetadataId": "00b37e3d-7f62-4155-998d-087a67204e9e"
+              },
+              "type": "Compose",
+              "inputs": "@if(empty(first(outputs('Find_ticket')?['body/value'])?['vin_repairresult']), 'Inspected and repaired by our technician; unit tested and working normally.', first(outputs('Find_ticket')?['body/value'])?['vin_repairresult'])"
+            },
+            "Is_replacement": {
+              "runAfter": {
+                "Result_text": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "1e6c7a75-a268-46e9-a5bc-f8528f1830fc"
+              },
+              "type": "Compose",
+              "inputs": "@or(startsWith(toLower(outputs('Result_text')),'replacement'),contains(toLower(outputs('Result_text')),'replaced with a new unit'))"
+            },
+            "Update_ticket": {
+              "runAfter": {
+                "Is_replacement": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "1b686644-ab5f-4e92-8d5f-fb4d764286d1"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "connectionName": "shared_commondataserviceforapps",
+                  "operationId": "UpdateRecord",
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_commondataserviceforapps"
+                },
+                "parameters": {
+                  "entityName": "vin_ccservicetickets",
+                  "recordId": "@{first(outputs('Find_ticket')?['body/value'])?['vin_ccserviceticketid']}",
+                  "item/vin_customernotified": true,
+                  "item/vin_latestupdate": "@{outputs('Result_text')} @{if(outputs('Is_replacement'),'Your replacement is on its way.','Your product is on its way back to you.')}",
+                  "item/vin_repairresult": "@{outputs('Result_text')}",
+                  "item/vin_ticketstatus": "@if(outputs('Is_replacement'), 949870004, 949870003)"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Set_outcome": {
+              "runAfter": {
+                "Update_ticket": [
+                  "Succeeded"
+                ]
+              },
+              "metadata": {
+                "operationMetadataId": "194eed38-4e7e-4eaf-8c8b-efb33fb145a6"
+              },
+              "type": "SetVariable",
+              "inputs": {
+                "name": "vOutcome",
+                "value": "Ticket @{first(outputs('Find_ticket')?['body/value'])?['vin_ticketnumber']} updated to @{if(outputs('Is_replacement'),'Replaced','Repaired')}. Result: @{outputs('Result_text')}. Customer emailed."
+              }
+            }
+          },
+          "runAfter": {
+            "Find_ticket": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Set_not_found": {
+                "runAfter": {},
+                "metadata": {
+                  "operationMetadataId": "0a56bec5-1a8b-474c-9698-ef23f6c25114"
+                },
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "vOutcome",
+                  "value": "No service ticket found with number @{triggerBody()?['text']}."
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@empty(first(outputs('Find_ticket')?['body/value']))",
+                  false
+                ]
+              }
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "dd69a92b-8c5a-4c74-beab-e04a04df0a17"
+          },
+          "type": "If"
+        },
+        "Respond_to_the_agent": {
+          "runAfter": {
+            "Ticket_found": [
+              "Succeeded",
+              "Failed"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "1d81edb9-c4fb-44af-acdf-76995160a3c6"
+          },
+          "type": "Response",
+          "kind": "Skills",
+          "inputs": {
+            "statusCode": 200,
+            "body": {
+              "outcome": "@{variables('vOutcome')}"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "outcome": {
+                  "title": "Outcome",
+                  "x-ms-dynamically-added": true,
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "templateName": ""
+  },
+  "schemaVersion": "1.0.0.0"
+}

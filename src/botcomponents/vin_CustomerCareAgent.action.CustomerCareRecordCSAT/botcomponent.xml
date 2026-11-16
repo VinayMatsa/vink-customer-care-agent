@@ -1,0 +1,11 @@
+<botcomponent schemaname="vin_CustomerCareAgent.action.CustomerCareRecordCSAT">
+  <componenttype>9</componenttype>
+  <description>Saves a 1-5 satisfaction rating on a resolved ticket. Used by the Rate a Ticket topic only.</description>
+  <iscustomizable>1</iscustomizable>
+  <name>Customer Care – Record CSAT</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>

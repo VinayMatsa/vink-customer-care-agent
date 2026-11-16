@@ -1,0 +1,204 @@
+kind: AdaptiveDialog
+startBehavior: CancelOtherTopics
+beginDialog:
+  kind: OnEscalate
+  id: main
+  intent:
+    displayName: Escalate
+    includeInOnSelectIntent: false
+    triggerQueries:
+      - Talk to agent
+      - Talk to a person
+      - Talk to someone
+      - Call back
+      - Call customer service
+      - Call me please
+      - Call support
+      - Call technical support
+      - Can an agent call me
+      - Can I call
+      - Can I get in touch with someone else
+      - Can I get real agent support
+      - Can I get transferred to a person to call
+      - Can I have a call in number Or can I be called
+      - Can I have a representative call me
+      - Can I schedule a call
+      - Can I speak to a representative
+      - Can I talk to a human
+      - Can I talk to a human assistant
+      - Can someone call me
+      - Chat with a human
+      - Chat with a representative
+      - Chat with agent
+      - Chat with someone please
+      - Connect me to a live agent
+      - Connect me to a person
+      - Could some one contact me by phone
+      - Customer agent
+      - Customer representative
+      - Customer service
+      - I need a manager to contact me
+      - I need customer service
+      - I need help from a person
+      - I need to speak with a live argent
+      - I need to talk to a specialist please
+      - I want to talk to customer service
+      - I want to proceed with live support
+      - I want to speak with a consultant
+      - I want to speak with a live tech
+      - I would like to speak with an associate
+      - I would like to talk to a technician
+      - Talk with tech support member
+
+  actions:
+    - kind: SendActivity
+      id: msg_safety
+      activity: I'll connect you with a customer care specialist. If this is a safety issue, such as a swollen battery, smoke or a burning smell, please stop using the product and unplug it now.
+
+    - kind: BeginDialog
+      id: begin_identify
+      dialog: vin_CustomerCareAgent.topic.IdentifyCustomer
+
+    - kind: ConditionGroup
+      id: cond_not_verified
+      conditions:
+        - id: cond_not_verified_yes
+          condition: =Global.CustomerVerified <> true
+          actions:
+            - kind: EndDialog
+              id: end_not_verified
+
+    - kind: SetVariable
+      id: set_esc_ticket
+      variable: init:Topic.TicketNo
+      value: =Global.CurrentTicket
+
+    - kind: ConditionGroup
+      id: cond_pick
+      conditions:
+        - id: cond_pick_yes
+          condition: =IsBlank(Topic.TicketNo)
+          actions:
+            - kind: InvokeFlowAction
+              id: flow_list_open
+              input:
+                binding:
+                  text: =Global.ContactId
+                  text_1: ="open"
+
+              output:
+                binding:
+                  ticketchoices: Topic.TicketChoices
+                  ticketcount: Topic.TicketCount
+                  ticketlist: Topic.TicketList
+
+              flowId: c4cf3f49-f6cd-f111-a05a-6045bd565bd6
+
+            - kind: ConditionGroup
+              id: cond_has_open
+              conditions:
+                - id: cond_has_open_yes
+                  condition: =Value(Topic.TicketCount) > 0
+                  actions:
+                    - kind: AdaptiveCardPrompt
+                      id: card_pick_esc
+                      card: |-
+                        ={
+                          type: "AdaptiveCard",
+                          version: "1.5",
+                          body: [
+                            { type: "TextBlock", text: "Is this about one of your open tickets?", weight: "Bolder", wrap: true },
+                            { type: "Input.ChoiceSet", id: "ticket", style: "expanded", value: "NEW", choices: ForAll(Split(Topic.TicketChoices & "|NEW~Something new", "|"), { title: Last(Split(ThisRecord.Value, "~")).Value, value: First(Split(ThisRecord.Value, "~")).Value }) }
+                          ],
+                          actions: [
+                            { type: "Action.Submit", title: "Continue", data: { action: "ok" } }
+                          ]
+                        }
+                      output:
+                        binding:
+                          action: Topic.PickAction
+                          ticket: Topic.Picked
+
+                      outputType:
+                        properties:
+                          action: String
+                          ticket: String
+
+                    - kind: SetVariable
+                      id: set_picked
+                      variable: Topic.TicketNo
+                      value: =If(Topic.Picked = "NEW", "", Topic.Picked)
+
+    - kind: Question
+      id: q_reason
+      alwaysPrompt: true
+      variable: init:Topic.Reason
+      prompt: In a sentence or two, what do you need the specialist to help with?
+      entity: StringPrebuiltEntity
+
+    - kind: ConditionGroup
+      id: cond_new_ticket
+      conditions:
+        - id: cond_new_ticket_yes
+          condition: =IsBlank(Topic.TicketNo)
+          actions:
+            - kind: InvokeFlowAction
+              id: flow_create_for_person
+              input:
+                binding:
+                  text: =Global.ContactId
+                  text_1: =""
+                  text_2: ="General"
+                  text_3: ="Customer asked to speak to a person"
+                  text_4: =Topic.Reason
+                  text_5: =Topic.Reason
+                  text_6: ="High"
+                  text_7: ="yes"
+                  text_8: =Global.CustomerEmail
+
+              output:
+                binding:
+                  result: Topic.CreateResult
+                  ticketnumber: Topic.TicketNo
+
+              flowId: 3b356e61-f6cd-f111-a05a-6045bd565bd6
+
+    - kind: InvokeFlowAction
+      id: flow_escalate
+      input:
+        binding:
+          text: =Topic.TicketNo
+          text_1: =Global.ContactId
+          text_2: =Topic.Reason
+
+      output:
+        binding:
+          result: Topic.EscResult
+          team: Topic.EscTeam
+
+      flowId: 2bd520a4-f6cd-f111-a05a-6045bd565bd6
+
+    - kind: SetVariable
+      id: clear_current
+      variable: Global.CurrentTicket
+      value: =""
+
+    - kind: ConditionGroup
+      id: cond_escalated
+      conditions:
+        - id: cond_escalated_yes
+          condition: =Topic.EscResult = "Escalated"
+          actions:
+            - kind: SendActivity
+              id: msg_escalated
+              conversationOutcome: Escalated
+              activity: |-
+                Done. I've passed **{Topic.TicketNo}** to a senior member of the {Topic.EscTeam} team. They'll contact you within one business day (Monday to Saturday, 9:00 to 18:00), and I've emailed you a copy.
+
+                Is there anything else I can help you with while you wait?
+
+      elseActions:
+        - kind: SendActivity
+          id: msg_esc_failed
+          conversationOutcome: Escalated
+          activity: Sorry, I couldn't pass this on automatically. Please email our customer care team and quote {If(IsBlank(Topic.TicketNo), "your order number", Topic.TicketNo)}; a specialist will reply within one business day.

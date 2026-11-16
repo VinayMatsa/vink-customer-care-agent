@@ -1,0 +1,11 @@
+<botcomponent schemaname="vin_CustomerCareAgent.action.CustomerCareListCustomerTickets">
+  <componenttype>9</componenttype>
+  <description>Lists the verified customer's tickets. Used by topics only.</description>
+  <iscustomizable>1</iscustomizable>
+  <name>Customer Care – List Customer Tickets</name>
+  <parentbotid>
+    <schemaname>vin_CustomerCareAgent</schemaname>
+  </parentbotid>
+  <statecode>0</statecode>
+  <statuscode>1</statuscode>
+</botcomponent>
