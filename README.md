@@ -1,24 +1,59 @@
-﻿# Vink Customer Care Agent (Microsoft Power Platform)
+# Vink Customer Care Agent (Microsoft Power Platform)
 
-An end-to-end customer support solution for a fictional electronics retailer, Vink Electronics.
+An end-to-end AI customer support solution for a fictional electronics retailer, **Vink Electronics**, built with **Copilot Studio**, **Power Automate**, **Dataverse** and a **model-driven app**.
 
-## What it does
-- Customers chat with an AI agent (Copilot Studio) to raise tickets, check ticket status, track orders, make warranty claims, escalate to a person and rate their support.
-- Verifies customers by email + order number or customer number.
-- AI triage suggests category, priority and a summary for each ticket.
-- Routes tickets to Repairs, Billing or Logistics with SLA due times; VIP tickets are raised to High.
-- Detects duplicate tickets.
-- Sends automatic emails for new tickets, status changes and escalations, plus a daily SLA report.
-- Autonomous trigger: when a returned item is scanned at the warehouse, the agent updates the ticket on its own.
-- Staff app (Vink Care Hub) with views, dashboard, charts and security roles.
+> **Personal project.** Built in my own developer environment to practice Copilot Studio and Power Platform skills hands-on. Vink Electronics is fictional and all sample data is made up.
 
-## Built with
-Copilot Studio · Power Automate · Dataverse · Model-driven Power Apps · AI Builder prompts
+## Architecture
+
+```mermaid
+flowchart LR
+    C([Customer]) -->|chat| A
+
+    subgraph CS[Copilot Studio]
+        A[Customer Care Agent<br/>generative orchestration]
+        B[Billing child agent]
+        K[(Knowledge:<br/>Warranty and Returns Policy)]
+        T[Topics: identify customer, new ticket,<br/>ticket status, track order, warranty claim,<br/>escalate, rate ticket]
+    end
+
+    subgraph PA[Power Automate]
+        AF[Agent flows used as tools<br/>find customer, create ticket, list tickets,<br/>list orders, add reply, escalate, RMA,<br/>record CSAT, repair update]
+        BF[Background flows<br/>ticket created, status changed,<br/>daily SLA check]
+    end
+
+    subgraph DV[Dataverse]
+        D[(Contact · Order · Product ·<br/>Service Ticket · Ticket Update ·<br/>Support Team · Warranty Claim)]
+    end
+
+    W([Warehouse scan event]) -->|autonomous trigger| A
+    A --- B
+    A --- K
+    A --- T
+    A --> AF --> D
+    D --> BF -->|emails and alerts| S([Staff and customers])
+    D --> M[Vink Care Hub<br/>model-driven app]
+```
+
+## What it demonstrates
+
+| Area | Implementation |
+|---|---|
+| Agent design | Copilot Studio agent with generative orchestration, custom topics, entities (order, ticket and serial numbers) and a Billing child agent |
+| Grounding | Warranty and Returns Policy as a knowledge source, with rules in the agent instructions |
+| Tools | Power Automate agent flows called as tools to read and write Dataverse |
+| AI triage | A prompt suggests subject, category, priority and a staff summary; the customer confirms on an adaptive card, and a duplicate check runs before the ticket is created |
+| Autonomous trigger | A warehouse scan event makes the agent update the repair ticket with no one in the chat |
+| Data model | Dataverse tables for customers, orders, products, tickets, ticket updates (customer-visible vs internal), support teams and warranty claims, with autonumbers and SLA due dates |
+| Staff app | Vink Care Hub model-driven app with security roles, views, charts and a dashboard |
+| Automation | Status emails, VIP and urgent alerts, and a daily SLA report, with all addresses held in environment variables |
+| Responsible AI | Customer verification (email plus order or customer number), human escalation, and instructions never to ask for card numbers, passwords or one-time codes |
 
 ## How to install
-1. In Power Apps, go to Solutions > Import solution.
-2. Select the .zip file in this repository.
-3. Set the connections and environment variables when asked.
+
+1. In Power Apps, go to **Solutions > Import solution**.
+2. Select `CustomerCareAgent_1_0_0_1.zip` from this repository.
+3. Set the connections and the environment variables (`vin_CCSupportMailbox`, `vin_CCCustomerEmailOverride`) when asked.
 
 ## Screenshots
 
@@ -46,5 +81,6 @@ Copilot Studio · Power Automate · Dataverse · Model-driven Power Apps · AI B
 ### Cloud flows in the solution
 ![Cloud flows in the solution](screenshots/8-flows.png)
 
----
-Vink Electronics is fictional and all sample data is made up.
+## Built with
+
+Copilot Studio · Power Automate · Dataverse · Model-driven Power Apps · AI Builder prompts · Adaptive Cards
